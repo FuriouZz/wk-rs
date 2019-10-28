@@ -1,0 +1,2 @@
+[commands.echo]
+command = "echo Hello World"
