@@ -1,5 +1,6 @@
 mod utils;
-mod command;
+mod importer;
+mod task;
 
 use std::path::{Path, PathBuf};
 use utils::path::*;
@@ -10,11 +11,15 @@ fn main() -> Result<(), utils::fs::FileError> {
         .join("Commands.toml")
         .normalize();
 
-    let tasks = command::load(&path)?;
+    let tasks = importer::load(&path)?;
     println!("{:#?}", tasks);
 
-    command::Task::new().cwd(PathBuf::from(&path));
+    task::Task::new()
+    .name(String::from("Coucou"))
+    .cwd(&path);
 
+    let task: task::Task = "echo Hello World".parse().unwrap();
+    println!("{:#?}", task);
     // // let result = Reader::toml_value(path)?;
     // println!("{:?}", result);
 

@@ -1,2 +1,6 @@
 [commands.echo]
-command = "echo Hello World"
+command = "echo Hello ${name}!"
+variables = { name = "World" }
+subcommands = [
+  { name = "john", variables = { name = "John" } }
+]
