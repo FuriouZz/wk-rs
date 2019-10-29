@@ -1,12 +1,9 @@
 use crate::utils::fs::{FileError, Reader};
 use serde::Deserialize;
-use std::borrow::Cow;
-use std::path::Path;
+use std::path::{ Path, PathBuf };
 
 // export interface Command {
 //   source?: string;
-//   cwd?: string;
-//   binPath?: string;
 //   conditions?: CommandCondition[];
 //   variables?: Record<string, string>;
 //   subcommands?: (string|Command)[]
@@ -22,14 +19,15 @@ pub struct CommandSchema {
   command: String,
   cwd: Option<std::path::PathBuf>,
   name: Option<String>,
-  visible: Option<bool>,
   args: Option<Vec<String>>,
+  visible: Option<bool>,
+  bin_path: Option<std::path::PathBuf>,
   depends_on: Option<Vec<String>>,
   description: Option<String>,
   // subcommands: Option<Vec<CommandFile>>,
 }
 
-impl<'a> From<CommandSchema> for Task<'a> {
+impl From<CommandSchema> for Task {
 
   fn from(value: CommandSchema) -> Self {
     let mut task = Task::new()
@@ -61,13 +59,16 @@ impl<'a> From<CommandSchema> for Task<'a> {
         task = task.param(value.clone());
       }
     }
+    if let Some(bin_path) = value.bin_path {
+      task = task.bin_path(bin_path);
+    }
 
     return task;
   }
 
 }
 
-pub fn load<'a, P>(path: P) -> Result<Vec<Task<'a>>, FileError>
+pub fn load< P>(path: P) -> Result<Vec<Task>, FileError>
 where
   P: AsRef<std::path::Path>,
 {
@@ -82,6 +83,7 @@ where
     }
 
     let task: Task = command.into();
+    // task.source(&path);
     return task;
   }).collect();
 
@@ -95,58 +97,78 @@ pub enum TaskVisibility {
 }
 
 #[derive(Debug)]
-pub struct Task<'a> {
-  command: Cow<'a, str>,
-  cwd: Cow<'a, Path>,
-  name: Cow<'a, str>,
+pub struct Task {
+  command: String,
+  cwd: PathBuf,
+  name: String,
+  source: PathBuf,
   visible: TaskVisibility,
-  description: Option<Cow<'a, str>>,
-  dependencies: Vec<Cow<'a, str>>,
-  parameters: Vec<Cow<'a, str>>,
+  bin_path: PathBuf,
+  parameters: Vec<String>,
+  description: Option<String>,
+  dependencies: Vec<String>,
 }
 
-impl<'a> Task<'a> {
+impl Task {
   pub fn new() -> Self {
     Self {
-      command: Cow::Borrowed(""),
-      cwd: Cow::Borrowed(Path::new("")),
-      name: Cow::Borrowed("task"),
+      command: "".to_owned(),
+      cwd: Path::new("").to_owned(),
+      name: "task".to_owned(),
+      source: Path::new("").to_owned(),
       visible: TaskVisibility::Visible,
+      bin_path: Path::new("").to_owned(),
+      parameters: Vec::new(),
       description: None,
       dependencies: Vec::new(),
-      parameters: Vec::new(),
     }
   }
 
   pub fn name<S>(mut self, name: S) -> Self
   where
-    S: Into<Cow<'a, str>>,
+    S: AsRef<str>,
   {
-    self.name = name.into();
+    self.name = name.as_ref().to_owned();
     self
   }
 
   pub fn description<S>(mut self, description: S) -> Self
   where
-    S: Into<Cow<'a, str>>,
+    S: AsRef<str>,
   {
-    self.description = Some(description.into());
+    self.description = Some(description.as_ref().to_owned());
     self
   }
 
   pub fn command<S>(mut self, command: S) -> Self
   where
-    S: Into<Cow<'a, str>>,
+    S: AsRef<str>,
   {
-    self.command = command.into();
+    self.command = command.as_ref().to_owned();
     self
   }
 
   pub fn cwd<S>(mut self, cwd: S) -> Self
   where
-    S: Into<Cow<'a, Path>>,
+    S: AsRef<Path>,
   {
-    self.cwd = cwd.into();
+    self.cwd = cwd.as_ref().to_owned();
+    self
+  }
+
+  pub fn source<S>(mut self, source: S) -> Self
+  where
+    S: AsRef<Path>,
+  {
+    self.source = source.as_ref().to_owned();
+    self
+  }
+
+  pub fn bin_path<S>(mut self, bin_path: S) -> Self
+  where
+    S: AsRef<Path>,
+  {
+    self.bin_path = bin_path.as_ref().to_owned();
     self
   }
 
@@ -157,17 +179,17 @@ impl<'a> Task<'a> {
 
   pub fn depend<S>(mut self, dependency: S) -> Self
   where
-    S: Into<Cow<'a, str>>,
+    S: AsRef<str>,
   {
-    self.dependencies.push(dependency.into());
+    self.dependencies.push(dependency.as_ref().to_owned());
     self
   }
 
   pub fn param<S>(mut self, parameter: S) -> Self
   where
-    S: Into<Cow<'a, str>>,
+    S: AsRef<str>,
   {
-    self.parameters.push(parameter.into());
+    self.parameters.push(parameter.as_ref().to_owned());
     self
   }
 }
