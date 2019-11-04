@@ -4,3 +4,25 @@ variables = { name = "World" }
 subcommands = [
   { name = "john", variables = { name = "John" } }
 ]
+
+[commands.config]
+command = "tsc -p config/tsconfig.json"
+bin_path = "./node_modules/.bin"
+
+[commands.task]
+command = "node tmp/tasks.js"
+depends_on = [ "config" ]
+
+# [aliases.locale]
+# command = "task locale"
+
+[commands.build]
+command = "${webpack} --config tmp/build.js --env.environment=${env}"
+bin_path = "./node_modules/.bin"
+depends_on = [ "config" ]
+variables = { env = "development", webpack = "webpack" }
+subcommands = [
+  { name = "development" },
+  { name = "staging", variables = { env = "staging" } },
+  { name = "server",  variables = { webpack = "webpack-dev-server" } }
+]

@@ -27,7 +27,7 @@ impl Task {
     Default::default()
   }
 
-  pub fn name<S>(mut self, name: S) -> Self
+  pub fn with_name<S>(mut self, name: S) -> Self
   where
     S: Into<String>,
   {
@@ -35,7 +35,7 @@ impl Task {
     self
   }
 
-  pub fn description<S>(mut self, description: S) -> Self
+  pub fn with_description<S>(mut self, description: S) -> Self
   where
     S: Into<String>,
   {
@@ -43,7 +43,7 @@ impl Task {
     self
   }
 
-  pub fn command<S>(mut self, command: S) -> Self
+  pub fn with_command<S>(mut self, command: S) -> Self
   where
     S: Into<String>,
   {
@@ -62,7 +62,7 @@ impl Task {
     self
   }
 
-  pub fn cwd<S>(mut self, cwd: S) -> Self
+  pub fn with_cwd<S>(mut self, cwd: S) -> Self
   where
     S: Into<PathBuf>,
   {
@@ -70,7 +70,7 @@ impl Task {
     self
   }
 
-  pub fn source<S>(mut self, source: S) -> Self
+  pub fn with_source<S>(mut self, source: S) -> Self
   where
     S: Into<PathBuf>,
   {
@@ -78,7 +78,7 @@ impl Task {
     self
   }
 
-  pub fn bin_path<S>(mut self, bin_path: S) -> Self
+  pub fn with_bin_path<S>(mut self, bin_path: S) -> Self
   where
     S: Into<PathBuf>,
   {
@@ -86,12 +86,12 @@ impl Task {
     self
   }
 
-  pub fn visible(mut self, visible: TaskVisibility) -> Self {
+  pub fn with_visible(mut self, visible: TaskVisibility) -> Self {
     self.visible = visible;
     self
   }
 
-  pub fn depend<S>(mut self, dependency: S) -> Self
+  pub fn with_dependency<S>(mut self, dependency: S) -> Self
   where
     S: Into<String>,
   {
@@ -99,7 +99,7 @@ impl Task {
     self
   }
 
-  pub fn param<S>(mut self, parameter: S) -> Self
+  pub fn with_parameter<S>(mut self, parameter: S) -> Self
   where
     S: Into<String>,
   {
@@ -107,7 +107,7 @@ impl Task {
     self
   }
 
-  pub fn variables(mut self, variables: HashMap<String, String>) -> Self {
+  pub fn with_variables(mut self, variables: HashMap<String, String>) -> Self {
     self.variables.extend(variables);
     self
   }
@@ -134,7 +134,7 @@ impl FromStr for Task {
   type Err = std::str::Utf8Error;
 
   fn from_str(s: &str) -> Result<Self, Self::Err> {
-    let task = Task::new().command(s);
+    let task = Task::new().with_command(s);
     Ok(task)
   }
 }

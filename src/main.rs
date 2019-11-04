@@ -1,22 +1,30 @@
-mod utils;
 mod importer;
 mod task;
+mod utils;
 
-use std::path::{Path, PathBuf};
-use utils::path::*;
+fn main() {
+  let args: Vec<String> = std::env::args().collect();
+  println!("{:#?}", args);
+}
 
-fn main() -> Result<(), utils::fs::FileError> {
+#[cfg(test)]
+mod tests {
+  use std::path::{Path, PathBuf};
+  use super::utils::path::*;
+  use super::{ utils };
+  use super::*;
+
+  #[test]
+  fn parse_file() -> Result<(), utils::fs::FileError> {
     let path: PathBuf = Path::new("./")
-        .join("tmp")
-        .join("Commands.toml")
-        .normalize();
+      .join("tmp")
+      .join("Commands.toml")
+      .normalize();
 
     let tasks = importer::load(&path)?;
     println!("{:#?}", tasks);
 
-    task::Task::new()
-    .name(String::from("Coucou"))
-    .cwd(&path);
+    task::Task::new().with_name("Coucou").with_cwd(&path);
 
     let task: task::Task = "echo Hello World".parse().unwrap();
     println!("{:#?}", task);
@@ -27,4 +35,5 @@ fn main() -> Result<(), utils::fs::FileError> {
     // println!("{:?}", command);
 
     Ok(())
+  }
 }

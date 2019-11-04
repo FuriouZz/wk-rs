@@ -47,38 +47,38 @@ pub struct SubTaskDescription {
 
 impl From<TaskDescription> for Task {
   fn from(value: TaskDescription) -> Self {
-    let mut task = Task::new().command(value.command);
+    let mut task = Task::new().with_command(value.command);
 
     if let Some(cwd) = value.cwd {
-      task = task.cwd(cwd);
+      task = task.with_cwd(cwd);
     }
     if let Some(visible) = value.visible {
       if visible {
-        task = task.visible(TaskVisibility::Visible);
+        task = task.with_visible(TaskVisibility::Visible);
       } else {
-        task = task.visible(TaskVisibility::Hidden);
+        task = task.with_visible(TaskVisibility::Hidden);
       }
     }
     if let Some(description) = value.description {
-      task = task.description(description);
+      task = task.with_description(description);
     }
     if let Some(dependencies) = value.depends_on {
       let mut iterator = dependencies.into_iter();
       for value in iterator.next() {
-        task = task.depend(value);
+        task = task.with_dependency(value);
       }
     }
     if let Some(args) = value.args {
       let mut iterator = args.into_iter();
       for value in iterator.next() {
-        task = task.param(value);
+        task = task.with_parameter(value);
       }
     }
     if let Some(bin_path) = value.bin_path {
-      task = task.bin_path(bin_path);
+      task = task.with_bin_path(bin_path);
     }
     if let Some(variables) = value.variables {
-      task = task.variables(variables);
+      task = task.with_variables(variables);
     }
 
     return task;
@@ -129,12 +129,12 @@ where
         subcmd.description = sub.description.or(subcmd.description);
 
         let subtask: Task = subcmd.into();
-        tasks.push(subtask.name(sub.name).source(source.clone()));
+        tasks.push(subtask.with_name(sub.name).with_source(source.clone()));
       }
     }
 
     let task: Task = cmd.into();
-    tasks.push(task.name(cmd_name).source(source));
+    tasks.push(task.with_name(cmd_name).with_source(source));
   }
 
   Ok(tasks)
