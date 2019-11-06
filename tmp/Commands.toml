@@ -13,9 +13,6 @@ bin_path = "./node_modules/.bin"
 command = "node tmp/tasks.js"
 depends_on = [ "config" ]
 
-# [aliases.locale]
-# command = "task locale"
-
 [commands.build]
 command = "${webpack} --config tmp/build.js --env.environment=${env}"
 bin_path = "./node_modules/.bin"

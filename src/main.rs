@@ -2,6 +2,11 @@ mod importer;
 mod task;
 mod utils;
 
+const PATHS: [&'static str; 2] = [
+  "commands.toml",
+  "Commands.toml"
+];
+
 fn main() {
   let args: Vec<String> = std::env::args().collect();
   println!("{:#?}", args);
@@ -11,11 +16,17 @@ fn main() {
 mod tests {
   use std::path::{Path, PathBuf};
   use super::utils::path::*;
-  use super::{ utils };
   use super::*;
 
   #[test]
-  fn parse_file() -> Result<(), utils::fs::FileError> {
+  fn lookup() {
+    let mut dir_path = std::env::current_dir().unwrap();
+    dir_path.push("tmp");
+    utils::fs::fetch(dir_path, &PATHS[1]);
+  }
+
+  #[test]
+  fn parse_file() -> Result<(), Box<dyn std::error::Error>> {
     let path: PathBuf = Path::new("./")
       .join("tmp")
       .join("Commands.toml")

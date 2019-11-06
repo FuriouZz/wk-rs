@@ -1,29 +1,10 @@
 use std::io::Read;
 
-#[derive(Debug)]
-pub enum FileError {
-  InvalidData
-}
-
-impl From<std::io::Error> for FileError {
-  fn from(_: std::io::Error) -> FileError
-  {
-    FileError::InvalidData
-  }
-}
-
-impl From<toml::de::Error> for FileError {
-  fn from(_: toml::de::Error) -> FileError
-  {
-    FileError::InvalidData
-  }
-}
-
 pub struct Reader;
 
 impl Reader {
 
-  pub fn text<P>(path: P) -> Result<String, FileError>
+  pub fn text<P>(path: P) -> Result<String, Box<dyn std::error::Error>>
   where P: AsRef<std::path::Path>
   {
     let mut file = std::fs::File::open(path)?;
@@ -32,7 +13,8 @@ impl Reader {
     Ok(content)
   }
 
-  pub fn toml_value<P>(path: P) -> Result<toml::Value, FileError>
+  #[allow(dead_code)]
+  pub fn toml_value<P>(path: P) -> Result<toml::Value, Box<dyn std::error::Error>>
   where P: AsRef<std::path::Path>
   {
     let result = Reader::text(path)?;
@@ -40,4 +22,29 @@ impl Reader {
     Ok(data)
   }
 
+}
+
+#[allow(dead_code)]
+pub fn fetch<P>(dir_path: P, pattern: &str) -> Result<std::path::PathBuf, Box<dyn std::error::Error>>
+where P: AsRef<std::path::Path> {
+  let dir = std::fs::read_dir(dir_path)?;
+  let re = regex::Regex::new(pattern).unwrap();
+
+  let mut iter = dir
+  .filter_map(|item: Result<std::fs::DirEntry, std::io::Error>| {
+    match item {
+      Ok(entry) => {
+        let path = entry.path();
+        if path.is_file() && re.is_match(path.to_str()?) {
+          Some(path)
+        } else {
+          None
+        }
+      },
+      _ => None
+    }
+  }).peekable();
+
+  let p = iter.peek().unwrap();
+  Ok(p.into())
 }

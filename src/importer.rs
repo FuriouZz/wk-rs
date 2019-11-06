@@ -1,5 +1,5 @@
 use crate::task::{Task, TaskVisibility};
-use crate::utils::fs::{FileError, Reader};
+use crate::utils::fs::{Reader};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -7,7 +7,6 @@ use std::path::{Path, PathBuf};
 // export interface Command {
 //   conditions?: CommandCondition[];
 // }
-//
 //
 // concurrents: FileConcurrentRecord;
 // importGlobals?: boolean;
@@ -85,7 +84,8 @@ impl From<TaskDescription> for Task {
   }
 }
 
-pub fn load<P>(path: P) -> Result<Vec<Task>, FileError>
+#[allow(dead_code)]
+pub fn load<P>(path: P) -> Result<Vec<Task>, Box<dyn std::error::Error>>
 where
   P: AsRef<Path> + Copy,
 {
