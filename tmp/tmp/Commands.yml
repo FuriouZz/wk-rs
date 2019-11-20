@@ -1,0 +1,50 @@
+# version 0.1
+
+extends:
+  - ./Commands.yml
+variables:
+  WEBPACK: npx webpack --config tmp/build.js
+commands:
+  config:
+    hidden: true
+    command: npx tsc -p config/tsconfig.json
+  task:
+    command: node tmp/tasks.js
+    depends:
+      - config
+  build:
+    command: ${WEBPACK} --env.environment=${environment}
+    depends:
+      - config
+    variables:
+      environment: experience
+  webext:
+    hidden: true
+    command: npx web-ext run
+    cwd: build/${extension}
+    variables:
+      extension: experience
+      target: firefox-desktop
+  run:
+    hidden: true
+    commands:
+      - wk:webext --var.target=${target} --var.extension=${extension}
+      - wk:build --var.environment=${extension} --watch
+    variables:
+      target: chrome
+      extension: experience
+
+  # Task subcommands
+  locale: wk:task locale
+
+  # Build subcommands
+  build:experience: wk:build --var.environment=experience
+  build:tool: wk:build --var.environment=tool
+  zip:experience: wk:build --var.environment=experience --env.zip
+  zip:tool: wk:build --var.environment=tool --env.zip
+
+  # Run subcommands
+  chrome:tool: wk:run --var.t=chrome --var.e=tool
+  firefox:tool: wk:run --var.t=firefox --var.e=tool
+  chrome-experience: wk:run --var.t=chrome --var.e=experience
+  firefox-experience: wk:run --var.t=firefox --var.e=experience
