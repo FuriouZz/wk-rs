@@ -16,10 +16,9 @@
       "description": "Run test",
       "options": [
         "lookup",
-        "parse_file",
-        "parse_file2",
+        "parse_file"
       ],
-      "default": "parse_file2",
+      "default": "parse_file",
     }
   ]
 }
