@@ -1,7 +1,7 @@
 use crate::utils::path::*;
-use crate::importer::load;
+use crate::importer::{load, CommandImported};
 use crate::utils;
-use crate::command::Command;
+use crate::command::CommandBuilder;
 
 #[cfg(test)]
 use std::path::{Path, PathBuf};
@@ -23,13 +23,22 @@ fn parse_file() -> Result<(), Box<dyn std::error::Error>> {
     .join("Commands.yml")
     .normalize();
 
-  let tasks = load(&path)?;
-  println!("{:#?}", tasks);
+  let mut tasks = load(&path)?;
+  // println!("{:#?}", tasks);
+
+  if let Some(imported) = tasks.remove("build") {
+    match imported {
+      CommandImported::Command(build) => {
+        build.into_command();
+      },
+      _ => {}
+    }
+  }
 
   // task::Task::new().with_name("Coucou").with_cwd(&path);
 
-  let task: Command = "echo Hello World".parse().unwrap();
-  println!("{:#?}", task);
+  // let task: CommandBuilder = "echo Hello World".parse().unwrap();
+  // println!("{:#?}", task);
 
   Ok(())
 }

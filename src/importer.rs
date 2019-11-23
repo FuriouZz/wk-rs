@@ -1,5 +1,5 @@
 use crate::utils::fs::{Reader};
-use crate::command::Command;
+use crate::command::CommandBuilder;
 use crate::concurrent::Concurrent;
 use serde_yaml;
 use serde::Deserialize;
@@ -31,9 +31,9 @@ struct CommandDescription {
   description: Option<String>,
 }
 
-impl From<CommandDescription> for Command {
+impl From<CommandDescription> for CommandBuilder {
   fn from(value: CommandDescription) -> Self {
-    let mut task = Command::new();
+    let mut task = CommandBuilder::new();
     task.with_command(value.command).with_cwd(value.cwd);
 
     if let Some(args) = value.args {
@@ -99,11 +99,11 @@ struct ExtendedCommandDescription {
 }
 
 pub struct ExtendedTask<'a> {
-  extend: &'a Command,
+  extend: &'a CommandBuilder,
   desc: ExtendedCommandDescription
 }
 
-impl<'a> From<ExtendedTask<'a>> for Command {
+impl<'a> From<ExtendedTask<'a>> for CommandBuilder {
   fn from(value: ExtendedTask) -> Self {
     let mut task = value.extend.clone();
     task.with_cwd(value.desc.cwd);
@@ -130,7 +130,7 @@ impl<'a> From<ExtendedTask<'a>> for Command {
 
 #[derive(Debug)]
 pub enum CommandImported {
-  Command(Command),
+  Command(CommandBuilder),
   Concurrent(Concurrent)
 }
 
@@ -166,12 +166,12 @@ where
 
     match command {
       CommandFileDescription::StringCommand(command) => {
-        let mut task: Command = command.as_str().parse::<Command>()?;
+        let mut task: CommandBuilder = command.as_str().parse::<CommandBuilder>()?;
         task.with_name(name.clone()).with_source(source.clone());
         tasks.insert(name.clone(), CommandImported::Command(task));
       },
       CommandFileDescription::Command(task_desc) => {
-        let mut task: Command = task_desc.into();
+        let mut task: CommandBuilder = task_desc.into();
         task.with_name(name.clone()).with_source(source.clone());
         tasks.insert(name.clone(), CommandImported::Command(task));
       },
@@ -198,7 +198,7 @@ where
           desc: command
         };
 
-        let mut task: Command = extend.into();
+        let mut task: CommandBuilder = extend.into();
         task.with_name(name.clone());
         tasks.insert(name.clone(), CommandImported::Command(task));
       } else {

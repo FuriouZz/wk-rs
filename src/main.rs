@@ -1,3 +1,5 @@
+#[macro_use] extern crate lazy_static;
+
 mod importer;
 mod command;
 mod concurrent;
