@@ -1,25 +1,47 @@
-[commands.echo]
-command = "echo Hello ${name}!"
-variables = { name = "World" }
-subcommands = [
-  { name = "john", variables = { name = "John" } }
-]
+# version 0.1
+
+extends = [ "./Commands.toml" ]
+variables = { WEBPACK = "npx webpack --config tmp/build.js" }
 
 [commands.config]
-command = "tsc -p config/tsconfig.json"
-bin_path = "./node_modules/.bin"
+command = "npx tsc -p config/tsconfig.json"
+hidden = true
 
 [commands.task]
-command = "node tmp/tasks.js"
-depends_on = [ "config" ]
+command = "node tmp/tasks.js ${command}"
+depends = [ "config" ]
 
 [commands.build]
-command = "${webpack} --config tmp/build.js --env.environment=${env}"
-bin_path = "./node_modules/.bin"
-depends_on = [ "config" ]
-variables = { env = "development", webpack = "webpack" }
-subcommands = [
-  { name = "development" },
-  { name = "staging", variables = { env = "staging" } },
-  { name = "server",  variables = { webpack = "webpack-dev-server" } }
+command = "${WEBPACK} --env.environment=${environment}"
+depends = [ "config" ]
+variables = { environment = "experience" }
+
+[commands.webext]
+command = "npx web-ext run"
+hidden = true
+cwd = "build/${extension}"
+variables = { extension = "experience", target = "firefox-desktop" }
+
+[commands.run]
+commands = [
+  "@webext --var.target=${target} --var.extension=${extension}",
+  "@build --var.environment=${extension} --watch"
 ]
+hidden = true
+variables = { target = "chrome", extension = "experience" }
+
+[commands]
+# Task subcommands
+locale = "task locale"
+
+# Build subcommands
+"build:experience" = "build --var.environment=experience"
+"build:tool" = "build --var.environment=tool"
+"zip:experience" = "build --var.environment=experience --env.zip"
+"zip:tool" = "build --var.environment=tool --env.zip"
+
+# Run subcommands
+"chrome:tool" = "run --var.t=chrome --var.e=tool"
+"firefox:tool" = "run --var.t=firefox --var.e=tool"
+chrome-experience = "run --var.t=chrome --var.e=experience"
+firefox-experience = "run --var.t=firefox --var.e=experience"

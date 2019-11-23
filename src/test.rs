@@ -1,7 +1,7 @@
 use crate::utils::path::*;
-use crate::importer;
+use crate::importer::load;
 use crate::utils;
-use crate::task;
+use crate::command::Command;
 
 #[cfg(test)]
 use std::path::{Path, PathBuf};
@@ -17,19 +17,18 @@ fn lookup() {
 }
 
 #[test]
-fn parse_file2() -> Result<(), Box<dyn std::error::Error>> {
+fn parse_file() -> Result<(), Box<dyn std::error::Error>> {
   let path: PathBuf = Path::new("./")
-    .join("tmp")
     .join("tmp")
     .join("Commands.yml")
     .normalize();
 
-  let tasks = importer::load(&path)?;
+  let tasks = load(&path)?;
   println!("{:#?}", tasks);
 
   // task::Task::new().with_name("Coucou").with_cwd(&path);
 
-  let task: task::Task = "echo Hello World".parse().unwrap();
+  let task: Command = "echo Hello World".parse().unwrap();
   println!("{:#?}", task);
 
   Ok(())

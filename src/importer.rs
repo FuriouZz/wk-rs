@@ -1,5 +1,5 @@
 use crate::utils::fs::{Reader};
-use crate::task::Task;
+use crate::command::Command;
 use crate::concurrent::Concurrent;
 use serde_yaml;
 use serde::Deserialize;
@@ -8,20 +8,20 @@ use serde::Deserialize;
 struct CommandsFile {
   extends: Option<Vec<String>>,
   variables: Option<std::collections::HashMap<String, String>>,
-  commands: std::collections::HashMap<String, CommandDescription>,
+  commands: std::collections::HashMap<String, CommandFileDescription>,
 }
 
 #[derive(Deserialize, Debug)]
 #[serde(untagged)]
-enum CommandDescription {
-  Command(String),
-  Task(TaskDescription),
-  ExtendedTask(ExtendedTaskDescription),
+enum CommandFileDescription {
+  StringCommand(String),
+  Command(CommandDescription),
+  ExtendedCommand(ExtendedCommandDescription),
   Concurrent(ConcurrentDescription),
 }
 
 #[derive(Deserialize, Debug)]
-struct TaskDescription {
+struct CommandDescription {
   cwd: Option<std::path::PathBuf>,
   args: Option<Vec<String>>,
   hidden: Option<bool>,
@@ -31,25 +31,25 @@ struct TaskDescription {
   description: Option<String>,
 }
 
-impl From<TaskDescription> for Task {
-  fn from(value: TaskDescription) -> Self {
-    let mut task = Task::new().with_command(value.command);
-    task = task.with_cwd(value.cwd);
+impl From<CommandDescription> for Command {
+  fn from(value: CommandDescription) -> Self {
+    let mut task = Command::new();
+    task.with_command(value.command).with_cwd(value.cwd);
 
     if let Some(args) = value.args {
-      task = task.with_args(args);
+      task.with_args(args);
     }
     if let Some(hidden) = value.hidden {
-      task = task.with_hidden(hidden);
+      task.with_hidden(hidden);
     }
     if let Some(dependencies) = value.depends {
-      task = task.with_dependencies(dependencies);
+      task.with_dependencies(dependencies);
     }
     if let Some(variables) = value.variables {
-      task = task.with_variables(variables);
+      task.with_variables(variables);
     }
     if let Some(description) = value.description {
-      task = task.with_description(description);
+      task.with_description(description);
     }
 
     return task;
@@ -68,19 +68,19 @@ struct ConcurrentDescription {
 impl From<ConcurrentDescription> for Concurrent {
   fn from(value: ConcurrentDescription) -> Self {
     let mut concurrent = Concurrent::new();
-    concurrent = concurrent.with_commands(value.commands);
+    concurrent.with_commands(value.commands);
 
     if let Some(hidden) = value.hidden {
-      concurrent = concurrent.with_hidden(hidden);
+      concurrent.with_hidden(hidden);
     }
     if let Some(dependencies) = value.depends {
-      concurrent = concurrent.with_dependencies(dependencies);
+      concurrent.with_dependencies(dependencies);
     }
     if let Some(description) = value.description {
-      concurrent = concurrent.with_description(description);
+      concurrent.with_description(description);
     }
     if let Some(variables) = value.variables {
-      concurrent = concurrent.with_variables(variables);
+      concurrent.with_variables(variables);
     }
 
     return concurrent;
@@ -88,7 +88,7 @@ impl From<ConcurrentDescription> for Concurrent {
 }
 
 #[derive(Deserialize, Debug)]
-struct ExtendedTaskDescription {
+struct ExtendedCommandDescription {
   cwd: Option<std::path::PathBuf>,
   args: Option<Vec<String>>,
   hidden: Option<bool>,
@@ -99,29 +99,29 @@ struct ExtendedTaskDescription {
 }
 
 pub struct ExtendedTask<'a> {
-  extend: &'a Task,
-  desc: ExtendedTaskDescription
+  extend: &'a Command,
+  desc: ExtendedCommandDescription
 }
 
-impl<'a> From<ExtendedTask<'a>> for Task {
+impl<'a> From<ExtendedTask<'a>> for Command {
   fn from(value: ExtendedTask) -> Self {
     let mut task = value.extend.clone();
-    task = task.with_cwd(value.desc.cwd);
+    task.with_cwd(value.desc.cwd);
 
     if let Some(args) = value.desc.args {
-      task = task.with_args(args);
+      task.with_args(args);
     }
     if let Some(hidden) = value.desc.hidden {
-      task = task.with_hidden(hidden);
+      task.with_hidden(hidden);
     }
     if let Some(dependencies) = value.desc.depends {
-      task = task.with_dependencies(dependencies);
+      task.with_dependencies(dependencies);
     }
     if let Some(variables) = value.desc.variables {
-      task = task.with_variables(variables);
+      task.with_variables(variables);
     }
     if let Some(description) = value.desc.description {
-      task = task.with_description(description);
+      task.with_description(description);
     }
 
     return task;
@@ -129,8 +129,8 @@ impl<'a> From<ExtendedTask<'a>> for Task {
 }
 
 #[derive(Debug)]
-pub enum Command {
-  Task(Task),
+pub enum CommandImported {
+  Command(Command),
   Concurrent(Concurrent)
 }
 
@@ -145,7 +145,7 @@ pub enum Command {
 // }
 
 #[allow(dead_code)]
-pub fn load<P>(path: P) -> Result<std::collections::HashMap<String, Command>, Box<dyn std::error::Error>>
+pub fn load<P>(path: P) -> Result<std::collections::HashMap<String, CommandImported>, Box<dyn std::error::Error>>
 where
   P: AsRef<std::path::Path> + Copy,
 {
@@ -155,32 +155,32 @@ where
   let mut source = std::path::PathBuf::new();
   source.push(&path);
 
-  let mut tasks: std::collections::HashMap<String, Command> = std::collections::HashMap::new();
-  let mut extends: Vec<(String, ExtendedTaskDescription)> = Vec::new();
+  let mut tasks: std::collections::HashMap<String, CommandImported> = std::collections::HashMap::new();
+  let mut extends: Vec<(String, ExtendedCommandDescription)> = Vec::new();
 
   // Create tasks
   let mut commands = file.commands.into_iter();
   while let Some((key, value)) = commands.next() {
     let name: String = key;
-    let command: CommandDescription = value;
+    let command: CommandFileDescription = value;
 
     match command {
-      CommandDescription::Command(command) => {
-        let mut task: Task = command.as_str().parse::<Task>()?;
-        task = task.with_name(name.clone()).with_source(source.clone());
-        tasks.insert(name.clone(), Command::Task(task));
+      CommandFileDescription::StringCommand(command) => {
+        let mut task: Command = command.as_str().parse::<Command>()?;
+        task.with_name(name.clone()).with_source(source.clone());
+        tasks.insert(name.clone(), CommandImported::Command(task));
       },
-      CommandDescription::Task(task_desc) => {
-        let mut task: Task = task_desc.into();
-        task = task.with_name(name.clone()).with_source(source.clone());
-        tasks.insert(name.clone(), Command::Task(task));
+      CommandFileDescription::Command(task_desc) => {
+        let mut task: Command = task_desc.into();
+        task.with_name(name.clone()).with_source(source.clone());
+        tasks.insert(name.clone(), CommandImported::Command(task));
       },
-      CommandDescription::Concurrent(conc_desc) => {
+      CommandFileDescription::Concurrent(conc_desc) => {
         let mut conc: Concurrent = conc_desc.into();
-        conc = conc.with_name(name.clone()).with_source(source.clone());
-        tasks.insert(name.clone(), Command::Concurrent(conc));
+        conc.with_name(name.clone()).with_source(source.clone());
+        tasks.insert(name.clone(), CommandImported::Concurrent(conc));
       },
-      CommandDescription::ExtendedTask(extd_desc) => {
+      CommandFileDescription::ExtendedCommand(extd_desc) => {
         extends.push((name, extd_desc));
       }
     }
@@ -192,15 +192,15 @@ where
     let command = extd.1;
 
     if let Some(cmd) = tasks.get(&command.extend) {
-      if let Command::Task(task) = cmd {
+      if let CommandImported::Command(task) = cmd {
         let extend = ExtendedTask {
           extend: &task,
           desc: command
         };
 
-        let mut task: Task = extend.into();
-        task = task.with_name(name.clone());
-        tasks.insert(name.clone(), Command::Task(task));
+        let mut task: Command = extend.into();
+        task.with_name(name.clone());
+        tasks.insert(name.clone(), CommandImported::Command(task));
       } else {
         println!("Task \"{}\" Cannot extend the concurrent task \"{}\".", name, command.extend);
         // return Err(Box::new("Cannot extend a concurrent task."));
