@@ -18,7 +18,6 @@ pub struct CommandBuilder {
   kind: CommandKind,
   hidden: bool,
   source: std::path::PathBuf,
-  command: String,
   variables: std::collections::HashMap<String, String>,
   description: Option<String>,
   dependencies: Vec<String>,
@@ -34,7 +33,6 @@ impl CommandBuilder {
       kind: CommandKind::Shell,
       hidden: false,
       source: std::path::PathBuf::new(),
-      command: String::from(""),
       variables: std::collections::HashMap::new(),
       description: None,
       dependencies: Vec::new(),
@@ -56,20 +54,18 @@ impl CommandBuilder {
     let cmd = command.into();
     let parameters: Vec<&str> = cmd.split_whitespace().collect();
 
+    self.args.clear();
+
     let mut iterator = parameters.into_iter().enumerate();
     while let Some((index, param)) = iterator.next() {
       if index == 0 {
         if WK_REGEX.is_match(param) {
           self.kind = CommandKind::WK;
-          self.command = WK_REGEX.replace(param, "").into();
         } else {
           self.kind = CommandKind::Shell;
-          self.command = param.into();
         }
-      } else {
-        self.args.clear();
-        self.args.push(param.into());
       }
+      self.args.push(param.into());
     }
 
     self
@@ -147,78 +143,27 @@ impl CommandBuilder {
     self
   }
 
-  pub fn into_command(mut self) {
-    self.args.insert(0, self.command);
+  pub fn into_command(&self) -> Command {
+    let kind = self.kind.clone();
+    let args: Vec<String> = self.args
+    .iter()
+    .map(|arg: &String| {
+      let mut arg_res = arg.to_string();
 
-    let mut variables = self.variables;
-    let mut args = self.args.into_iter();
-    while let Some(arg) = args.next() {
-
-      for (key, value) in variables.iter() {
+      for (key, value) in self.variables.iter() {
         let r_key = format!("${{{}}}", key);
-        let r_key: &str = r_key.as_str();
-        let RE: regex::Regex = regex::Regex::new(r_key).unwrap();
-
-        println!("{}", RE.replace(arg.as_str(), |c: &regex::Captures| value));
+        arg_res = arg_res.as_str().replace(r_key.as_str(), value);
       }
 
+      arg_res
+    })
+    .collect();
 
-      // let capture_option = RE.captures(value.as_str()).and_then(|capture| {
-
-      //   for (key, value) in variables.iter() {
-      //     // if let Some(m) = capture.get(1) {
-      //     //   RE.replace(m.as_str(), )
-      //     // }
-      //   //   let r_key = format!("${{{}}}", key);
-      //   //   println!("{:?}", r_key);
-      //   //   println!("{:?}", capture);
-      //   //   println!("{:?}", capture.name(r_key.as_str()));
-      //   //   // let v = capture.name(key).map(|| value);
-      //   //   // println!(v);
-      //   }
-
-      //   Some("")
-      // });
+    Command {
+      args,
+      dependencies: Vec::new(),
+      kind
     }
-
-    // let mut variables = self.variables.into_iter();
-    // while let Some((key, value)) = variables.next() {
-
-    //   RE.captures
-    // }
-
-    // let mut args = self.args
-    // .iter()
-    // .map(|arg: &String| {
-
-    //   // arg.as_str()
-
-    //   let captures_option: Option<regex::Captures> = RE.captures(arg);
-    //   if let Some(captures) = captures_option {
-    //     let m_options = captures.get(1);
-    //     if let Some(m) = m_options {
-    //       let key = m.as_str();
-    //       let value_option = variables.get(key);
-    //       if let Some(value) = value_option {
-    //         println!("{:?}", RE.replace(arg.as_str(), |caps: &regex::Captures| {
-    //           println!("{:?}", caps);
-    //           ""
-    //         }));
-    //       }
-    //     }
-    //   }
-    //   return ();
-    // });
-
-    // args.next();
-    // args.next();
-    // args.next();
-
-    // Command {
-    //   args: self.args,
-    //   dependencies: Vec::new(),
-    //   kind: self.kind
-    // }
   }
 
 }
@@ -237,6 +182,7 @@ impl std::str::FromStr for CommandBuilder {
   }
 }
 
+#[derive(Debug)]
 pub struct Command {
   // cwd: Option<std::path::PathBuf>,
   args: Vec<String>,
