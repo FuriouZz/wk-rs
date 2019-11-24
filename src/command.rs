@@ -1,3 +1,5 @@
+use crate::error::Error;
+
 lazy_static! {
   static ref WK_REGEX: regex::Regex = regex::Regex::new("^wk:").unwrap();
 }
@@ -222,9 +224,13 @@ impl CommandBuilder {
 }
 
 impl std::str::FromStr for CommandBuilder {
-  type Err = std::str::Utf8Error;
+  type Err = Error;
 
   fn from_str(s: &str) -> Result<Self, Self::Err> {
+    if s.is_empty() {
+      return Err(Error::StringEmpty);
+    }
+
     let mut command = CommandBuilder::new();
     command.with_command(s);
     Ok(command)

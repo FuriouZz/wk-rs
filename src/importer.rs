@@ -1,8 +1,9 @@
-use crate::utils::fs::{Reader};
 use crate::command::CommandBuilder;
 use crate::concurrent::Concurrent;
-use serde_yaml;
+use crate::utils::fs::Reader;
+use crate::error::Error;
 use serde::Deserialize;
+use serde_yaml;
 
 #[derive(Deserialize, Debug)]
 struct CommandsFile {
@@ -98,14 +99,14 @@ struct ExtendedCommandDescription {
   description: Option<String>,
 }
 
-pub struct ExtendedTask<'a> {
-  extend: &'a CommandBuilder,
-  desc: ExtendedCommandDescription
+pub struct ExtendedCommand {
+  extend: CommandBuilder,
+  desc: ExtendedCommandDescription,
 }
 
-impl<'a> From<ExtendedTask<'a>> for CommandBuilder {
-  fn from(value: ExtendedTask) -> Self {
-    let mut task = value.extend.clone();
+impl From<ExtendedCommand> for CommandBuilder {
+  fn from(value: ExtendedCommand) -> Self {
+    let mut task = value.extend;
     task.with_cwd(value.desc.cwd);
 
     if let Some(args) = value.desc.args {
@@ -131,7 +132,7 @@ impl<'a> From<ExtendedTask<'a>> for CommandBuilder {
 #[derive(Debug)]
 pub enum CommandImported {
   Command(CommandBuilder),
-  Concurrent(Concurrent)
+  Concurrent(Concurrent),
 }
 
 // Later implementation for different variable types
@@ -145,7 +146,9 @@ pub enum CommandImported {
 // }
 
 #[allow(dead_code)]
-pub fn load<P>(path: P) -> Result<std::collections::HashMap<String, CommandImported>, Box<dyn std::error::Error>>
+pub fn load<P>(
+  path: P,
+) -> Result<std::collections::HashMap<String, CommandImported>, Error>
 where
   P: AsRef<std::path::Path> + Copy,
 {
@@ -155,7 +158,8 @@ where
   let mut source = std::path::PathBuf::new();
   source.push(&path);
 
-  let mut tasks: std::collections::HashMap<String, CommandImported> = std::collections::HashMap::new();
+  let mut tasks: std::collections::HashMap<String, CommandImported> =
+    std::collections::HashMap::new();
   let mut extends: Vec<(String, ExtendedCommandDescription)> = Vec::new();
 
   // Create tasks
@@ -169,17 +173,17 @@ where
         let mut task: CommandBuilder = command.as_str().parse::<CommandBuilder>()?;
         task.with_name(name.clone()).with_source(source.clone());
         tasks.insert(name.clone(), CommandImported::Command(task));
-      },
+      }
       CommandFileDescription::Command(task_desc) => {
         let mut task: CommandBuilder = task_desc.into();
         task.with_name(name.clone()).with_source(source.clone());
         tasks.insert(name.clone(), CommandImported::Command(task));
-      },
+      }
       CommandFileDescription::Concurrent(conc_desc) => {
         let mut conc: Concurrent = conc_desc.into();
         conc.with_name(name.clone()).with_source(source.clone());
         tasks.insert(name.clone(), CommandImported::Concurrent(conc));
-      },
+      }
       CommandFileDescription::ExtendedCommand(extd_desc) => {
         extends.push((name, extd_desc));
       }
@@ -193,18 +197,19 @@ where
 
     if let Some(cmd) = tasks.get(&command.extend) {
       if let CommandImported::Command(task) = cmd {
-        let extend = ExtendedTask {
-          extend: &task,
-          desc: command
+        let extend = ExtendedCommand {
+          extend: (*task).clone(),
+          desc: command,
         };
 
         let mut task: CommandBuilder = extend.into();
         task.with_name(name.clone());
         tasks.insert(name.clone(), CommandImported::Command(task));
       } else {
-        println!("Task \"{}\" Cannot extend the concurrent task \"{}\".", name, command.extend);
-        // return Err(Box::new("Cannot extend a concurrent task."));
+        return Err(Error::ExtendConcurrent(command.extend.clone()));
       }
+    } else {
+      return Err(Error::ExtendMissingCommand(command.extend.clone()));
     }
   }
 

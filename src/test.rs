@@ -20,20 +20,21 @@ fn lookup() {
 fn parse_file() -> Result<(), Box<dyn std::error::Error>> {
   let path: PathBuf = Path::new("./")
     .join("tmp")
-    .join("Commands.yml")
+    .join("simple.yml")
     .normalize();
 
-  let mut tasks = load(&path)?;
-  // println!("{:#?}", tasks);
+  let tasks = load(&path)?;
+  println!("{:#?}", tasks);
 
-  if let Some(imported) = tasks.remove("build") {
-    match imported {
-      CommandImported::Command(build) => {
-        build.into_command();
-      },
-      _ => {}
-    }
-  }
+  // if let Some(imported) = tasks.get("echo") {
+  //   match imported {
+  //     CommandImported::Command(build) => {
+  //       let cmd = build.into_command();
+  //       println!("{:?}", cmd);
+  //     },
+  //     _ => {}
+  //   }
+  // }
 
   // task::Task::new().with_name("Coucou").with_cwd(&path);
 

@@ -1,0 +1,9 @@
+commands:
+  echo:
+    command: echo Hello ${buddy}!
+    variables:
+      buddy: World
+  john:
+    extend: echo
+    variables:
+      buddy: John

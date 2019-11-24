@@ -4,7 +4,7 @@ pub struct Reader;
 
 impl Reader {
 
-  pub fn text<P>(path: P) -> Result<String, Box<dyn std::error::Error>>
+  pub fn text<P>(path: P) -> Result<String, std::io::Error>
   where P: AsRef<std::path::Path>
   {
     let mut file = std::fs::File::open(path)?;
