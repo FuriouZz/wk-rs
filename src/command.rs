@@ -1,9 +1,5 @@
 use crate::error::Error;
 
-lazy_static! {
-  static ref WK_REGEX: regex::Regex = regex::Regex::new("^wk:").unwrap();
-}
-
 #[derive(Debug, Clone)]
 pub enum CommandKind {
   WK,
@@ -59,11 +55,14 @@ impl CommandBuilder {
     let mut iterator = parameters.into_iter().enumerate();
     while let Some((index, param)) = iterator.next() {
       if index == 0 {
-        if WK_REGEX.is_match(param) {
+        if param.len() >= 4 && &param[0..3] == "wk:" {
           self.kind = CommandKind::WK;
-        } else {
-          self.kind = CommandKind::Shell;
+          let c = &param[3..];
+          self.args.push(c.into());
+          continue;
         }
+
+        self.kind = CommandKind::Shell;
       }
       self.args.push(param.into());
     }
