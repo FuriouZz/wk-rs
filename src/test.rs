@@ -12,7 +12,7 @@ const PATHS: [&'static str; 2] = ["commands.toml", "Commands.toml"];
 fn lookup() {
   let mut dir_path = std::env::current_dir().unwrap();
   dir_path.push("tmp");
-  let res = utils::fs::fetch(dir_path, &PATHS[1]);
+  let res = utils::fs::fetch(dir_path, "Commands.yml");
   println!("{:?}", res);
 }
 
@@ -20,7 +20,7 @@ fn lookup() {
 fn parse_file() -> Result<(), Box<dyn std::error::Error>> {
   let path: PathBuf = Path::new("./")
     .join("tmp")
-    .join("simple.yml")
+    .join("Commands.yml")
     .normalize();
 
   let tasks = load(&path)?;

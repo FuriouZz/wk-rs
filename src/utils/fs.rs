@@ -1,4 +1,5 @@
 use std::io::Read;
+use crate::error::Error;
 
 pub struct Reader;
 
@@ -25,26 +26,26 @@ impl Reader {
 }
 
 #[allow(dead_code)]
-pub fn fetch<P>(dir_path: P, pattern: &str) -> Result<std::path::PathBuf, Box<dyn std::error::Error>>
+pub fn fetch<P>(dir_path: P, pattern: &str) -> Result<(), std::io::Error>
 where P: AsRef<std::path::Path> {
+
+  let d = dir_path.as_ref();
+  let d = d.join(pattern);
+
   let dir = std::fs::read_dir(dir_path)?;
-  let re = regex::Regex::new(pattern).unwrap();
 
-  let mut iter = dir
-  .filter_map(|item: Result<std::fs::DirEntry, std::io::Error>| {
-    match item {
-      Ok(entry) => {
-        let path = entry.path();
-        if path.is_file() && re.is_match(path.to_str()?) {
-          Some(path)
-        } else {
-          None
-        }
-      },
-      _ => None
+  let mut it = dir.into_iter();
+  while let Some(item) = it.next() {
+    if let Ok(entry) = item {
+      let entry_path = entry.path();
+      let entry_str = entry_path.to_str().unwrap();
+      let b = d.to_str().unwrap() == entry_str;
+      println!("{} {} {}", entry_str, entry_str.len(), b);
+      if entry_path.is_file() && b {
+        return Ok(());
+      }
     }
-  }).peekable();
+  }
 
-  let p = iter.peek().unwrap();
-  Ok(p.into())
+  Ok(())
 }
