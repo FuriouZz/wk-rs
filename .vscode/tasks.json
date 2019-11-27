@@ -4,21 +4,14 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "test",
+      "label": "test:lookup",
       "type": "shell",
-      "command": "cargo test --package wk --bin wk -- ${input:test_name} --nocapture",
-    }
-  ],
-  "inputs": [
+      "command": "cargo test --package wk --bin wk -- lookup --nocapture",
+    },
     {
-      "type": "pickString",
-      "id": "test_name",
-      "description": "Run test",
-      "options": [
-        "lookup",
-        "parse_file"
-      ],
-      "default": "parse_file",
+      "label": "test:parse_file",
+      "type": "shell",
+      "command": "cargo test --package wk --bin wk -- parse_file --nocapture",
     }
   ]
 }
