@@ -215,3 +215,53 @@ where
 
   Ok(tasks)
 }
+
+
+#[allow(dead_code)]
+const FILES: [&'static str; 2] = ["commands.yml", "Commands.yml"];
+
+#[allow(dead_code)]
+pub fn lookup_dir<P>(dir_path: P) -> Result<std::path::PathBuf, Error>
+where P: AsRef<std::path::Path> {
+  lookup(dir_path, None)
+}
+
+#[allow(dead_code)]
+pub fn lookup<P>(dir_path: P, patterns: Option<Vec<&str>>) -> Result<std::path::PathBuf, Error>
+where P: AsRef<std::path::Path> {
+
+  let patterns = patterns.unwrap_or(FILES.to_vec());
+
+  let dir_path = dir_path.as_ref();
+  let mut dir_pathbuf = std::path::PathBuf::new().join(dir_path);
+
+  if !dir_pathbuf.is_absolute() {
+    if let Ok(cwd) = std::env::current_dir() {
+      dir_pathbuf = std::path::PathBuf::new().join(cwd).join(dir_pathbuf);
+    }
+  }
+
+  if !dir_pathbuf.is_dir() {
+    let d = dir_pathbuf.display();
+    return Err(Error::LookupError(format!("\"{}\" is not a directory", d)));
+  }
+
+  let dir_path = dir_pathbuf.as_path();
+  let readdir = std::fs::read_dir(dir_path)?;
+
+  let items: Vec<std::path::PathBuf> = patterns.iter().map(|pattern| {
+    std::path::PathBuf::new().join(&dir_path).join(&pattern)
+  }).collect();
+
+  let mut it = readdir.into_iter();
+  while let Some(item) = it.next() {
+    if let Ok(entry) = item {
+      let entry_path = entry.path();
+      if items.contains(&entry_path) {
+        return Ok(entry_path);
+      }
+    }
+  }
+
+  Err(Error::LookupError("No commands found.".to_string()))
+}

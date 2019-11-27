@@ -6,7 +6,7 @@ pub enum Error {
   StringEmpty,
   ExtendMissingCommand(String),
   ExtendConcurrent(String),
-  NoFileFound,
+  LookupError(String),
 }
 
 impl std::fmt::Display for Error {
@@ -18,7 +18,7 @@ impl std::fmt::Display for Error {
       Error::StringEmpty => write!(f, "Cannot convert string to command. String is empty."),
       Error::ExtendMissingCommand(s) => write!(f, "Cannot extend '{}', it is missing.", s),
       Error::ExtendConcurrent(s) => write!(f, "Cannot extend '{}', it is concurrent.", s),
-      Error::NoFileFound => write!(f, "Cannot find any commands file."),
+      Error::LookupError(s) => write!(f, "Lookup failed: {}", s),
     }
   }
 }

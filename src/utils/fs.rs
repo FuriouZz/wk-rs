@@ -1,5 +1,4 @@
 use std::io::Read;
-use crate::error::Error;
 
 pub struct Reader;
 
@@ -23,29 +22,4 @@ impl Reader {
     Ok(data)
   }
 
-}
-
-#[allow(dead_code)]
-pub fn fetch<P>(dir_path: P, pattern: &str) -> Result<(), std::io::Error>
-where P: AsRef<std::path::Path> {
-
-  let d = dir_path.as_ref();
-  let d = d.join(pattern);
-
-  let dir = std::fs::read_dir(dir_path)?;
-
-  let mut it = dir.into_iter();
-  while let Some(item) = it.next() {
-    if let Ok(entry) = item {
-      let entry_path = entry.path();
-      let entry_str = entry_path.to_str().unwrap();
-      let b = d.to_str().unwrap() == entry_str;
-      println!("{} {} {}", entry_str, entry_str.len(), b);
-      if entry_path.is_file() && b {
-        return Ok(());
-      }
-    }
-  }
-
-  Ok(())
 }

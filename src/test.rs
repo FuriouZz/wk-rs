@@ -1,18 +1,16 @@
 use crate::utils::path::*;
-use crate::importer::{load, CommandImported};
+use crate::importer;
 use crate::utils;
 use crate::command::CommandBuilder;
 
 #[cfg(test)]
 use std::path::{Path, PathBuf};
 
-const PATHS: [&'static str; 2] = ["commands.toml", "Commands.toml"];
-
 #[test]
 fn lookup() {
   let mut dir_path = std::env::current_dir().unwrap();
   dir_path.push("tmp");
-  let res = utils::fs::fetch(dir_path, "Commands.yml");
+  let res = importer::lookup_dir(dir_path);
   println!("{:?}", res);
 }
 
@@ -23,12 +21,12 @@ fn parse_file() -> Result<(), Box<dyn std::error::Error>> {
     .join("Commands.yml")
     .normalize();
 
-  let tasks = load(&path)?;
+  let tasks = importer::load(&path)?;
   println!("{:#?}", tasks);
 
   // if let Some(imported) = tasks.get("echo") {
   //   match imported {
-  //     CommandImported::Command(build) => {
+  //     importer::CommandImported::Command(build) => {
   //       let cmd = build.into_command();
   //       println!("{:?}", cmd);
   //     },
