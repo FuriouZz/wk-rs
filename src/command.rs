@@ -160,8 +160,8 @@ impl CommandBuilder {
 
     Command {
       args,
-      dependencies: Vec::new(),
-      kind
+      // dependencies: Vec::new(),
+      // kind
     }
   }
 
@@ -184,13 +184,13 @@ impl std::str::FromStr for CommandBuilder {
 #[derive(Debug)]
 pub struct Command {
   // cwd: Option<std::path::PathBuf>,
-  args: Vec<String>,
+  pub args: Vec<String>,
   // name: String,
-  kind: CommandKind,
+  // pub kind: CommandKind,
   // hidden: bool,
   // source: std::path::PathBuf,
   // command: String,
   // variables: std::collections::HashMap<String, String>,
   // description: Option<String>,
-  dependencies: Vec<String>,
+  // dependencies: Vec<String>,
 }
