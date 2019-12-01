@@ -32,39 +32,24 @@ impl Future for Runner {
   type Output = i32;
 
   fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-    let r = self.get_mut();
-
-    match &mut r.child {
-      Some(result) => {
-        match result {
-          Ok(child) => {
-            let res: Poll<Self::Output>;
-
-            loop {
-              match child.try_wait() {
-                Ok(Some(e)) => {
-                  println!("{:?}", e);
-                  res = Poll::Ready(0);
-                  break;
-                },
-                Ok(None) => {
-                  continue;
-                },
-                Err(e) => {
-                  println!("{:?}", e);
-                  res = Poll::Ready(-1);
-                  break;
-                }
-              }
-            }
-
-            return res;
+    let runner = self.get_mut();
+    match &mut runner.child {
+      Some(Ok(child)) => {
+        match child.try_wait() {
+          Ok(Some(e)) => {
+            println!("{:?}", e);
+            Poll::Ready(0)
           },
+          Ok(None) => Poll::Pending,
           Err(e) => {
             println!("{:?}", e);
             Poll::Ready(-1)
           }
         }
+      },
+      Some(Err(e)) => {
+        println!("{:?}", e);
+        Poll::Ready(-1)
       },
       None => Poll::Pending
     }

@@ -2,7 +2,7 @@ use std::sync::mpsc::{ sync_channel, SyncSender, Receiver };
 use std::sync::{ Arc, Mutex };
 use std::future::Future;
 use std::task::{ Context, Poll };
-use futures::future::BoxFuture;
+use futures::future::{ BoxFuture, FutureExt };
 use futures::task::{ ArcWake, waker_ref };
 
 pub struct Executor {
@@ -14,7 +14,7 @@ impl Executor {
 
   pub fn new() -> Self {
     const MAX_QUEUED_TASKS: usize = 10_000;
-    let (queue, sender) = sync_channel(MAX_QUEUED_TASKS);
+    let (sender, queue) = sync_channel(MAX_QUEUED_TASKS);
 
     Self {
       queue,
@@ -22,7 +22,7 @@ impl Executor {
     }
   }
 
-  pub fn spawn(&self, future: impl Future + Send) {
+  pub fn spawn(&self, future: impl Future<Output = ()> + 'static + Send) {
     let boxed_future = future.boxed();
     let task = Arc::new(Task {
       future: Mutex::new(Some(boxed_future)),
@@ -33,9 +33,8 @@ impl Executor {
 
   pub fn run(&self) {
     while let Ok(task) = self.queue.recv() {
-      let f = task.future.lock().unwrap();
-      if let Some(future) = f.take() {
-
+      let mut f = task.future.lock().unwrap();
+      if let Some(mut future) = f.take() {
         let waker = waker_ref(&task);
         let ctx = &mut Context::from_waker(&*waker);
 

@@ -1,9 +1,11 @@
 commands:
   echo:
-    command: echo Hello ${buddy}!
+    command: test.bat ${timeout} ${buddy}!
     variables:
+      timeout: "10"
       buddy: World
   john:
     extend: echo
     variables:
+      timeout: "5"
       buddy: John
