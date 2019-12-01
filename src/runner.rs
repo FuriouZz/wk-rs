@@ -40,7 +40,11 @@ impl Future for Runner {
             println!("{:?}", e);
             Poll::Ready(0)
           },
-          Ok(None) => Poll::Pending,
+          Ok(None) => {
+            let w = cx.waker().clone();
+            w.wake();
+            Poll::Pending
+          },
           Err(e) => {
             println!("{:?}", e);
             Poll::Ready(-1)
@@ -51,7 +55,11 @@ impl Future for Runner {
         println!("{:?}", e);
         Poll::Ready(-1)
       },
-      None => Poll::Pending
+      None => {
+        let w = cx.waker().clone();
+        w.wake();
+        Poll::Pending
+      }
     }
   }
 }

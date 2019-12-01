@@ -18,7 +18,7 @@ impl Executor {
 
     Self {
       queue,
-      sender
+      sender,
     }
   }
 
@@ -31,7 +31,8 @@ impl Executor {
     self.sender.send(task).expect("Too many task queued");
   }
 
-  pub fn run(&self) {
+  pub fn run(self) {
+    std::mem::drop(self.sender);
     while let Ok(task) = self.queue.recv() {
       let mut f = task.future.lock().unwrap();
       if let Some(mut future) = f.take() {
