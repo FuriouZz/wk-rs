@@ -1,7 +1,9 @@
-use crate::command::CommandBuilder;
-use crate::concurrent::Concurrent;
-use crate::utils::fs::Reader;
-use crate::error::Error;
+use crate::{
+  command::CommandBuilder,
+  concurrent::Concurrent,
+  utils::fs::Reader,
+  error::Error,
+};
 use serde::Deserialize;
 use serde_yaml;
 
@@ -145,7 +147,6 @@ pub enum CommandImported {
 //   I(i64),
 // }
 
-#[allow(dead_code)]
 pub fn load<P>(
   path: P,
 ) -> Result<std::collections::HashMap<String, CommandImported>, Error>
@@ -217,16 +218,13 @@ where
 }
 
 
-#[allow(dead_code)]
 const FILES: [&'static str; 2] = ["commands.yml", "Commands.yml"];
 
-#[allow(dead_code)]
 pub fn lookup_dir<P>(dir_path: P) -> Result<std::path::PathBuf, Error>
 where P: AsRef<std::path::Path> {
   lookup(dir_path, None)
 }
 
-#[allow(dead_code)]
 pub fn lookup<P>(dir_path: P, patterns: Option<Vec<&str>>) -> Result<std::path::PathBuf, Error>
 where P: AsRef<std::path::Path> {
 

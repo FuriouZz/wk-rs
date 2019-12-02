@@ -1,9 +1,15 @@
-use std::sync::mpsc::{ sync_channel, SyncSender, Receiver };
-use std::sync::{ Arc, Mutex };
-use std::future::Future;
-use std::task::{ Context, Poll };
-use futures::future::{ BoxFuture, FutureExt };
-use futures::task::{ ArcWake, waker_ref };
+use std::{
+  future::Future,
+  sync::{
+    Arc, Mutex,
+    mpsc::{ sync_channel, SyncSender, Receiver },
+  },
+  task::{ Context, Poll },
+};
+use futures:: {
+  future::{ BoxFuture, FutureExt },
+  task::{ ArcWake, waker_ref },
+};
 
 pub struct Executor {
   sender: SyncSender<Arc<Task>>,

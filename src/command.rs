@@ -1,4 +1,13 @@
 use crate::error::Error;
+use std::{
+  env,
+  future::Future,
+  process::Child,
+  pin::Pin,
+  task::{
+    Context, Poll,
+  },
+};
 
 #[derive(Debug, Clone)]
 pub enum CommandKind {
@@ -142,7 +151,7 @@ impl CommandBuilder {
     self
   }
 
-  pub fn into_command(&self) -> Command {
+  pub fn to_command(&self) -> Command {
     let kind = self.kind.clone();
     let args: Vec<String> = self.args
     .iter()
@@ -158,10 +167,24 @@ impl CommandBuilder {
     })
     .collect();
 
+    let mut cwd: Option<std::path::PathBuf> = None;
+    if let Some(ccwd) = &self.cwd {
+      cwd = Some(std::path::PathBuf::new().join(ccwd));
+    } else if let Ok(ccwd) = env::current_dir() {
+      cwd = Some(ccwd);
+    } else {
+      if self.source.is_file() {
+        if let Some(dir) = self.source.parent() {
+          cwd = Some(std::path::PathBuf::new().join(dir));
+        }
+      }
+    }
+
     Command {
+      cwd,
       args,
-      // dependencies: Vec::new(),
-      // kind
+      kind,
+      process: None,
     }
   }
 
@@ -183,14 +206,78 @@ impl std::str::FromStr for CommandBuilder {
 
 #[derive(Debug)]
 pub struct Command {
-  // cwd: Option<std::path::PathBuf>,
-  pub args: Vec<String>,
-  // name: String,
-  // pub kind: CommandKind,
-  // hidden: bool,
-  // source: std::path::PathBuf,
-  // command: String,
-  // variables: std::collections::HashMap<String, String>,
-  // description: Option<String>,
+  cwd: Option<std::path::PathBuf>,
+  kind: CommandKind,
+  args: Vec<String>,
+  process: Option<Result<Child, std::io::Error>>,
   // dependencies: Vec<String>,
+}
+
+impl Command {
+
+  pub fn execute(&mut self) {
+    // Set default shell
+    let mut cmd = {
+      if cfg!(windows) {
+        let mut c = std::process::Command::new("cmd.exe");
+        c.arg("/c");
+        c
+      } else {
+        let mut c = std::process::Command::new("bash");
+        c.arg("-c");
+        c
+      }
+    };
+
+    // Set arguments
+    cmd.args(&self.args);
+
+    // Set current directory
+    if let Some(cwd) = &self.cwd {
+      cmd.current_dir(cwd);
+    }
+
+    // Execute and store child process
+    self.process = Some(cmd.spawn());
+  }
+
+}
+
+impl Future for Command {
+  type Output = i32;
+
+  fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    let runner = self.get_mut();
+    let wake = || {
+      let w = cx.waker().clone();
+      w.wake();
+    };
+
+    match &mut runner.process {
+      Some(Ok(child)) => {
+        match child.try_wait() {
+          Ok(Some(e)) => {
+            println!("{:?}", e);
+            Poll::Ready(0)
+          },
+          Ok(None) => {
+            wake();
+            Poll::Pending
+          },
+          Err(e) => {
+            println!("{:?}", e);
+            Poll::Ready(-1)
+          }
+        }
+      },
+      Some(Err(e)) => {
+        println!("{:?}", e);
+        Poll::Ready(-1)
+      },
+      None => {
+        wake();
+        Poll::Pending
+      }
+    }
+  }
 }
