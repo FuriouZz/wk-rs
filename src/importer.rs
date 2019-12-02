@@ -27,6 +27,7 @@ enum CommandFileDescription {
 struct CommandDescription {
   cwd: Option<std::path::PathBuf>,
   args: Option<Vec<String>>,
+  shell: Option<std::path::PathBuf>,
   hidden: Option<bool>,
   command: String,
   depends: Option<Vec<String>>,
@@ -41,6 +42,9 @@ impl From<CommandDescription> for CommandBuilder {
 
     if let Some(args) = value.args {
       task.with_args(args);
+    }
+    if let Some(shell) = value.shell {
+      task.with_shell(shell);
     }
     if let Some(hidden) = value.hidden {
       task.with_hidden(hidden);
@@ -93,6 +97,7 @@ impl From<ConcurrentDescription> for Concurrent {
 #[derive(Deserialize, Debug)]
 struct ExtendedCommandDescription {
   cwd: Option<std::path::PathBuf>,
+  shell: Option<std::path::PathBuf>,
   args: Option<Vec<String>>,
   hidden: Option<bool>,
   extend: String,
@@ -113,6 +118,9 @@ impl From<ExtendedCommand> for CommandBuilder {
 
     if let Some(args) = value.desc.args {
       task.with_args(args);
+    }
+    if let Some(shell) = value.desc.shell {
+      task.with_shell(shell);
     }
     if let Some(hidden) = value.desc.hidden {
       task.with_hidden(hidden);

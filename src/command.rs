@@ -21,6 +21,7 @@ pub struct CommandBuilder {
   args: Vec<String>,
   name: String,
   kind: CommandKind,
+  shell: Option<std::path::PathBuf>,
   hidden: bool,
   source: std::path::PathBuf,
   variables: std::collections::HashMap<String, String>,
@@ -36,6 +37,7 @@ impl CommandBuilder {
       args: Vec::new(),
       name: String::from("command"),
       kind: CommandKind::Shell,
+      shell: None,
       hidden: false,
       source: std::path::PathBuf::new(),
       variables: std::collections::HashMap::new(),
@@ -108,6 +110,14 @@ impl CommandBuilder {
     self
   }
 
+  pub fn with_shell<S>(&mut self, shell: S) -> &mut Self
+  where
+    S: Into<std::path::PathBuf>,
+  {
+    self.shell = Some(shell.into());
+    self
+  }
+
   pub fn with_dependency<S>(&mut self, dependency: S) -> &mut Self
   where
     S: Into<String>,
@@ -167,6 +177,7 @@ impl CommandBuilder {
     })
     .collect();
 
+    // Set CWD
     let mut cwd: Option<std::path::PathBuf> = None;
     if let Some(ccwd) = &self.cwd {
       cwd = Some(std::path::PathBuf::new().join(ccwd));
@@ -180,10 +191,24 @@ impl CommandBuilder {
       }
     }
 
+    // Set Shell
+    let shell = {
+      if let Some(shell) = &self.shell {
+        std::path::PathBuf::new().join(shell)
+      } else {
+        if cfg!(windows) {
+          std::path::PathBuf::new().join("cmd.exe")
+        } else {
+          std::path::PathBuf::new().join("bash")
+        }
+      }
+    };
+
     Command {
       cwd,
       args,
       kind,
+      shell,
       process: None,
     }
   }
@@ -207,8 +232,9 @@ impl std::str::FromStr for CommandBuilder {
 #[derive(Debug)]
 pub struct Command {
   cwd: Option<std::path::PathBuf>,
-  kind: CommandKind,
   args: Vec<String>,
+  kind: CommandKind,
+  shell: std::path::PathBuf,
   process: Option<Result<Child, std::io::Error>>,
   // dependencies: Vec<String>,
 }
@@ -216,18 +242,14 @@ pub struct Command {
 impl Command {
 
   pub fn execute(&mut self) {
-    // Set default shell
-    let mut cmd = {
-      if cfg!(windows) {
-        let mut c = std::process::Command::new("cmd.exe");
-        c.arg("/c");
-        c
-      } else {
-        let mut c = std::process::Command::new("bash");
-        c.arg("-c");
-        c
-      }
-    };
+    let mut cmd = std::process::Command::new(&self.shell);
+
+    // Set shell caller
+    if self.shell.as_os_str() == std::ffi::OsStr::new("cmd.exe") {
+      cmd.arg("/c");
+    } else {
+      cmd.arg("-c");
+    }
 
     // Set arguments
     cmd.args(&self.args);
