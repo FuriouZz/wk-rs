@@ -252,7 +252,8 @@ impl Command {
     }
 
     // Set arguments
-    cmd.args(&self.args);
+    // cmd.args(&self.args[..]);
+    cmd.arg(self.args.join(" "));
 
     // Set current directory
     if let Some(cwd) = &self.cwd {
