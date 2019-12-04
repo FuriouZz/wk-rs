@@ -1,14 +1,14 @@
+use futures::{
+  future::{BoxFuture, FutureExt},
+  task::{waker_ref, ArcWake},
+};
 use std::{
   future::Future,
   sync::{
+    mpsc::{sync_channel, Receiver, SyncSender},
     Arc, Mutex,
-    mpsc::{ sync_channel, SyncSender, Receiver },
   },
-  task::{ Context, Poll },
-};
-use futures:: {
-  future::{ BoxFuture, FutureExt },
-  task::{ ArcWake, waker_ref },
+  task::{Context, Poll},
 };
 
 pub struct Executor {
@@ -17,15 +17,11 @@ pub struct Executor {
 }
 
 impl Executor {
-
   pub fn new() -> Self {
     const MAX_QUEUED_TASKS: usize = 10_000;
     let (sender, queue) = sync_channel(MAX_QUEUED_TASKS);
 
-    Self {
-      queue,
-      sender,
-    }
+    Self { queue, sender }
   }
 
   pub fn spawn(&self, future: impl Future<Output = ()> + 'static + Send) {
@@ -51,7 +47,6 @@ impl Executor {
       }
     }
   }
-
 }
 
 pub struct Task {

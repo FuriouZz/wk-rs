@@ -1,11 +1,13 @@
-mod importer;
+#![allow(dead_code)]
+
 mod command;
 mod concurrent;
-mod utils;
-mod test;
+mod context;
 mod error;
 mod executor;
-mod context;
+mod importer;
+mod test;
+mod utils;
 
 fn main() {
   let args: Vec<String> = std::env::args().collect();

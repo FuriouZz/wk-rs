@@ -1,30 +1,25 @@
-use std::{
-  collections::HashMap,
-  pin::Pin,
-  task::Poll,
-  task
-};
-use futures::{
-  stream::{Stream, StreamExt},
-};
 use crate::{
+  command::{Command, CommandBuilder, CommandResult},
   error::Error,
   importer::CommandImported,
-  command::{Command, CommandResult, CommandBuilder},
 };
+use futures::stream::{Stream, StreamExt};
+use std::{collections::HashMap, pin::Pin, task, task::Poll};
 
 pub struct Context {
   pub(crate) tasks: HashMap<String, CommandImported>,
 }
 
 impl Context {
-
-  pub fn find_builder(&self, name: &str) -> Option<&CommandBuilder> {
-    if let Some(imported) = self.tasks.get(name) {
+  pub fn find_builder<S>(&self, name: S) -> Option<&CommandBuilder>
+  where
+    S: AsRef<str>,
+  {
+    if let Some(imported) = self.tasks.get(name.as_ref()) {
       match imported {
         CommandImported::Command(builder) => {
           return Some(builder);
-        },
+        }
         _ => {}
       }
     }
@@ -32,7 +27,10 @@ impl Context {
     None
   }
 
-  pub fn find_command(&self, name: &str) -> Option<Command> {
+  pub fn find_command<S>(&self, name: S) -> Option<Command>
+  where
+    S: AsRef<str>,
+  {
     if let Some(builder) = self.find_builder(name) {
       return Some(builder.to_command());
     }
@@ -40,9 +38,11 @@ impl Context {
     None
   }
 
-  pub async fn run(&self, name: &str) -> Result<Vec<CommandResult>, Error> {
-    if let Some(command) = self.find_command(name) {
-
+  pub async fn run<S>(&self, name: S) -> Result<Vec<CommandResult>, Error>
+  where
+    S: AsRef<str>,
+  {
+    if let Some(command) = self.find_command(name.as_ref()) {
       let mut stack: Vec<Command> = Vec::new();
 
       // Add dependencies
@@ -51,7 +51,7 @@ impl Context {
           match self.find_command(depname.as_str()) {
             Some(dep) => {
               stack.push(dep);
-            },
+            }
             None => {}
           }
         }
@@ -69,8 +69,7 @@ impl Context {
       return Ok(results);
     }
 
-    let err = format!("Command \"{}\" not found", name);
+    let err = format!("Command \"{}\" not found", name.as_ref().to_string());
     Err(Error::CommandError(err))
   }
-
 }

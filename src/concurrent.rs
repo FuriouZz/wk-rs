@@ -10,7 +10,6 @@ pub struct Concurrent {
 }
 
 impl Concurrent {
-
   pub fn new() -> Self {
     Self {
       name: String::from("task"),
@@ -62,7 +61,7 @@ impl Concurrent {
 
   pub fn with_dependencies<I, S>(&mut self, dependencies: I) -> &mut Self
   where
-    I: IntoIterator<Item=S>,
+    I: IntoIterator<Item = S>,
     S: Into<String>,
   {
     for dependency in dependencies {
@@ -81,7 +80,7 @@ impl Concurrent {
 
   pub fn with_commands<I, S>(&mut self, commands: I) -> &mut Self
   where
-    I: IntoIterator<Item=S>,
+    I: IntoIterator<Item = S>,
     S: Into<String>,
   {
     for command in commands {
@@ -90,9 +89,11 @@ impl Concurrent {
     self
   }
 
-  pub fn with_variables(&mut self, variables: std::collections::HashMap<String, String>) -> &mut Self {
+  pub fn with_variables(
+    &mut self,
+    variables: std::collections::HashMap<String, String>,
+  ) -> &mut Self {
     self.variables.extend(variables);
     self
   }
-
 }

@@ -1,9 +1,6 @@
 use crate::{
-  command::CommandBuilder,
-  concurrent::Concurrent,
+  command::CommandBuilder, concurrent::Concurrent, context::Context, error::Error,
   utils::fs::Reader,
-  error::Error,
-  context::Context,
 };
 use serde::Deserialize;
 use serde_yaml;
@@ -156,9 +153,7 @@ pub enum CommandImported {
 //   I(i64),
 // }
 
-pub fn load<P>(
-  path: P,
-) -> Result<Context, Error>
+pub fn load<P>(path: P) -> Result<Context, Error>
 where
   P: AsRef<std::path::Path> + Copy,
 {
@@ -223,22 +218,22 @@ where
     }
   }
 
-  Ok(Context {
-    tasks
-  })
+  Ok(Context { tasks })
 }
-
 
 const FILES: [&'static str; 2] = ["commands.yml", "Commands.yml"];
 
 pub fn lookup_dir<P>(dir_path: P) -> Result<std::path::PathBuf, Error>
-where P: AsRef<std::path::Path> {
+where
+  P: AsRef<std::path::Path>,
+{
   lookup(dir_path, None)
 }
 
 pub fn lookup<P>(dir_path: P, patterns: Option<Vec<&str>>) -> Result<std::path::PathBuf, Error>
-where P: AsRef<std::path::Path> {
-
+where
+  P: AsRef<std::path::Path>,
+{
   let patterns = patterns.unwrap_or(FILES.to_vec());
 
   let dir_path = dir_path.as_ref();
@@ -258,9 +253,10 @@ where P: AsRef<std::path::Path> {
   let dir_path = dir_pathbuf.as_path();
   let readdir = std::fs::read_dir(dir_path)?;
 
-  let items: Vec<std::path::PathBuf> = patterns.iter().map(|pattern| {
-    std::path::PathBuf::new().join(&dir_path).join(&pattern)
-  }).collect();
+  let items: Vec<std::path::PathBuf> = patterns
+    .iter()
+    .map(|pattern| std::path::PathBuf::new().join(&dir_path).join(&pattern))
+    .collect();
 
   let mut it = readdir.into_iter();
   while let Some(item) = it.next() {

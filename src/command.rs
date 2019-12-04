@@ -2,11 +2,9 @@ use crate::error::Error;
 use std::{
   env,
   future::Future,
-  process::Child,
   pin::Pin,
-  task::{
-    Context, Poll,
-  },
+  process::Child,
+  task::{Context, Poll},
 };
 
 pub type CommandResult = Result<Option<i32>, Error>;
@@ -32,7 +30,6 @@ pub struct CommandBuilder {
 }
 
 impl CommandBuilder {
-
   pub fn new() -> Self {
     Self {
       cwd: None,
@@ -130,7 +127,7 @@ impl CommandBuilder {
 
   pub fn with_dependencies<I, S>(&mut self, dependencies: I) -> &mut Self
   where
-    I: IntoIterator<Item=S>,
+    I: IntoIterator<Item = S>,
     S: Into<String>,
   {
     for dependency in dependencies {
@@ -149,7 +146,7 @@ impl CommandBuilder {
 
   pub fn with_args<I, S>(&mut self, args: I) -> &mut Self
   where
-    I: IntoIterator<Item=S>,
+    I: IntoIterator<Item = S>,
     S: Into<String>,
   {
     for arg in args {
@@ -158,7 +155,10 @@ impl CommandBuilder {
     self
   }
 
-  pub fn with_variables(&mut self, variables: std::collections::HashMap<String, String>) -> &mut Self {
+  pub fn with_variables(
+    &mut self,
+    variables: std::collections::HashMap<String, String>,
+  ) -> &mut Self {
     self.variables.extend(variables);
     self
   }
@@ -168,19 +168,20 @@ impl CommandBuilder {
     let kind = self.kind.clone();
 
     // Set arguments
-    let args: Vec<String> = self.args
-    .iter()
-    .map(|arg: &String| {
-      let mut arg_res = arg.to_string();
+    let args: Vec<String> = self
+      .args
+      .iter()
+      .map(|arg: &String| {
+        let mut arg_res = arg.to_string();
 
-      for (key, value) in self.variables.iter() {
-        let r_key = format!("${{{}}}", key);
-        arg_res = arg_res.as_str().replace(r_key.as_str(), value);
-      }
+        for (key, value) in self.variables.iter() {
+          let r_key = format!("${{{}}}", key);
+          arg_res = arg_res.as_str().replace(r_key.as_str(), value);
+        }
 
-      arg_res
-    })
-    .collect();
+        arg_res
+      })
+      .collect();
 
     // Set CWD
     let mut cwd: Option<std::path::PathBuf> = None;
@@ -221,7 +222,6 @@ impl CommandBuilder {
       dependencies,
     }
   }
-
 }
 
 impl std::str::FromStr for CommandBuilder {
@@ -249,11 +249,9 @@ pub struct Command {
 }
 
 impl Command {
-
   pub fn execute(self) -> CommandFuture {
     CommandFuture::new(&self)
   }
-
 }
 
 pub struct CommandFuture {
@@ -261,7 +259,6 @@ pub struct CommandFuture {
 }
 
 impl CommandFuture {
-
   pub fn new(command: &Command) -> Self {
     let mut cmd = std::process::Command::new(&command.shell);
 
@@ -285,10 +282,9 @@ impl CommandFuture {
     let child = cmd.spawn();
 
     Self {
-      process: Some(child)
+      process: Some(child),
     }
   }
-
 }
 
 impl Future for CommandFuture {
@@ -302,19 +298,11 @@ impl Future for CommandFuture {
     };
 
     match runner.process.take() {
-      Some(Ok(mut child)) => {
-        match child.wait() {
-          Ok(e) => {
-            Poll::Ready(Ok(e.code()))
-          },
-          Err(e) => {
-            Poll::Ready(Err(Error::IoError(e)))
-          }
-        }
+      Some(Ok(mut child)) => match child.wait() {
+        Ok(e) => Poll::Ready(Ok(e.code())),
+        Err(e) => Poll::Ready(Err(Error::IoError(e))),
       },
-      Some(Err(e)) => {
-        Poll::Ready(Err(Error::IoError(e)))
-      },
+      Some(Err(e)) => Poll::Ready(Err(Error::IoError(e))),
       None => {
         wake();
         Poll::Pending

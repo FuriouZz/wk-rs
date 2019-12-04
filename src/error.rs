@@ -31,7 +31,7 @@ impl std::error::Error for Error {
       Error::StrError(ref e) => Some(e),
       Error::YamlError(ref e) => Some(e),
       Error::IoError(ref e) => Some(e),
-      _ => None
+      _ => None,
     }
   }
 }

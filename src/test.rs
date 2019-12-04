@@ -1,17 +1,13 @@
 #[cfg(test)]
 mod tests {
-  use crate:: {
-    utils::path::PathExt,
-    importer::{
-      CommandImported, load, lookup_dir
-    },
+  use crate::{
     executor::Executor,
+    importer::{load, lookup_dir, CommandImported},
+    utils::path::PathExt,
   };
   use std::{
     collections::HashMap,
-    path::{
-      Path, PathBuf,
-    }
+    path::{Path, PathBuf},
   };
 
   fn run(name: &str, executor: &Executor, tasks: &HashMap<String, CommandImported>) {
@@ -22,7 +18,7 @@ mod tests {
           executor.spawn(async {
             r.execute().await;
           });
-        },
+        }
         _ => {}
       }
     }
@@ -33,7 +29,7 @@ mod tests {
       match imported {
         CommandImported::Command(builder) => {
           builder.to_command().execute().await;
-        },
+        }
         _ => {}
       }
     }
@@ -54,10 +50,7 @@ mod tests {
   }
 
   async fn parse_file_async() {
-    let path: PathBuf = Path::new("./")
-      .join("tmp")
-      .join("simple.yml")
-      .normalize();
+    let path: PathBuf = Path::new("./").join("tmp").join("simple.yml").normalize();
 
     if let Ok(context) = load(&path) {
       context.run("how").await;
