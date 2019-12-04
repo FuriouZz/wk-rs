@@ -1,4 +1,4 @@
-use crate::error::Error;
+use crate::{context, error::Error};
 use std::{
   env,
   future::Future,
@@ -218,7 +218,6 @@ impl CommandBuilder {
       args,
       kind,
       shell,
-      process: None,
       dependencies,
     }
   }
@@ -244,13 +243,24 @@ pub struct Command {
   args: Vec<String>,
   kind: CommandKind,
   shell: std::path::PathBuf,
-  process: Option<Result<Child, std::io::Error>>,
   pub(crate) dependencies: Vec<String>,
 }
 
 impl Command {
-  pub fn execute(self) -> CommandFuture {
-    CommandFuture::new(&self)
+  pub fn execute(self, cx: &context::Context) -> CommandFuture {
+    if let CommandKind::Shell = self.kind {
+      return CommandFuture::new(&self);
+    }
+
+    let name = &self.args[0];
+    if let Some(mut command) = cx.find_command(name) {
+      command.cwd = self.cwd;
+      command.args.extend(self.args[1..].to_vec());
+      return command.execute(cx);
+    }
+
+    println!("[TODO] Handle non-existing command");
+    return CommandFuture::new(&self);
   }
 }
 

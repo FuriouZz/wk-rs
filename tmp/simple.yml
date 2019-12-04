@@ -1,13 +1,15 @@
 commands:
-  echo:
+  hello:
     command: echo Hello ${buddy}!
     variables:
       buddy: World
   john:
-    extend: echo
+    extend: hello
     variables:
       buddy: John
+  echo:
+    command: echo
   how:
-    command: echo How are you?
+    command: wk:echo How are you?
     depends:
       - john

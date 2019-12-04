@@ -3,8 +3,7 @@ use crate::{
   error::Error,
   importer::CommandImported,
 };
-use futures::stream::{Stream, StreamExt};
-use std::{collections::HashMap, pin::Pin, task, task::Poll};
+use std::collections::HashMap;
 
 pub struct Context {
   pub(crate) tasks: HashMap<String, CommandImported>,
@@ -63,7 +62,7 @@ impl Context {
       // Run commands
       let mut results: Vec<CommandResult> = Vec::new();
       for c in stack.into_iter() {
-        results.push(c.execute().await);
+        results.push(c.execute(&self).await);
       }
 
       return Ok(results);

@@ -10,31 +10,6 @@ mod tests {
     path::{Path, PathBuf},
   };
 
-  fn run(name: &str, executor: &Executor, tasks: &HashMap<String, CommandImported>) {
-    if let Some(imported) = tasks.get(name) {
-      match imported {
-        CommandImported::Command(builder) => {
-          let mut r = builder.to_command();
-          executor.spawn(async {
-            r.execute().await;
-          });
-        }
-        _ => {}
-      }
-    }
-  }
-
-  async fn run_async(name: &str, tasks: &HashMap<String, CommandImported>) {
-    if let Some(imported) = tasks.get(name) {
-      match imported {
-        CommandImported::Command(builder) => {
-          builder.to_command().execute().await;
-        }
-        _ => {}
-      }
-    }
-  }
-
   #[test]
   fn lookup() {
     let mut dir_path = std::env::current_dir().unwrap();
