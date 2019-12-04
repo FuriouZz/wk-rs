@@ -9,6 +9,8 @@ use std::{
   },
 };
 
+pub type CommandResult = Result<Option<i32>, Error>;
+
 #[derive(Debug, Clone)]
 pub enum CommandKind {
   WK,
@@ -162,7 +164,10 @@ impl CommandBuilder {
   }
 
   pub fn to_command(&self) -> Command {
+    // Set kind
     let kind = self.kind.clone();
+
+    // Set arguments
     let args: Vec<String> = self.args
     .iter()
     .map(|arg: &String| {
@@ -204,12 +209,16 @@ impl CommandBuilder {
       }
     };
 
+    // Set dependencies
+    let dependencies = self.dependencies.clone();
+
     Command {
       cwd,
       args,
       kind,
       shell,
       process: None,
+      dependencies,
     }
   }
 
@@ -236,38 +245,54 @@ pub struct Command {
   kind: CommandKind,
   shell: std::path::PathBuf,
   process: Option<Result<Child, std::io::Error>>,
-  // dependencies: Vec<String>,
+  pub(crate) dependencies: Vec<String>,
 }
 
 impl Command {
 
-  pub fn execute(&mut self) {
-    let mut cmd = std::process::Command::new(&self.shell);
+  pub fn execute(self) -> CommandFuture {
+    CommandFuture::new(&self)
+  }
+
+}
+
+pub struct CommandFuture {
+  process: Option<Result<Child, std::io::Error>>,
+}
+
+impl CommandFuture {
+
+  pub fn new(command: &Command) -> Self {
+    let mut cmd = std::process::Command::new(&command.shell);
 
     // Set shell caller
-    if self.shell.as_os_str() == std::ffi::OsStr::new("cmd.exe") {
+    if command.shell.as_os_str() == std::ffi::OsStr::new("cmd.exe") {
       cmd.arg("/c");
     } else {
       cmd.arg("-c");
     }
 
     // Set arguments
-    // cmd.args(&self.args[..]);
-    cmd.arg(self.args.join(" "));
+    // cmd.args(&command.args[..]);
+    cmd.arg(command.args.join(" "));
 
     // Set current directory
-    if let Some(cwd) = &self.cwd {
+    if let Some(cwd) = &command.cwd {
       cmd.current_dir(cwd);
     }
 
     // Execute and store child process
-    self.process = Some(cmd.spawn());
+    let child = cmd.spawn();
+
+    Self {
+      process: Some(child)
+    }
   }
 
 }
 
-impl Future for Command {
-  type Output = i32;
+impl Future for CommandFuture {
+  type Output = CommandResult;
 
   fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
     let runner = self.get_mut();
@@ -276,26 +301,19 @@ impl Future for Command {
       w.wake();
     };
 
-    match &mut runner.process {
-      Some(Ok(child)) => {
-        match child.try_wait() {
-          Ok(Some(e)) => {
-            println!("{:?}", e);
-            Poll::Ready(0)
-          },
-          Ok(None) => {
-            wake();
-            Poll::Pending
+    match runner.process.take() {
+      Some(Ok(mut child)) => {
+        match child.wait() {
+          Ok(e) => {
+            Poll::Ready(Ok(e.code()))
           },
           Err(e) => {
-            println!("{:?}", e);
-            Poll::Ready(-1)
+            Poll::Ready(Err(Error::IoError(e)))
           }
         }
       },
       Some(Err(e)) => {
-        println!("{:?}", e);
-        Poll::Ready(-1)
+        Poll::Ready(Err(Error::IoError(e)))
       },
       None => {
         wake();

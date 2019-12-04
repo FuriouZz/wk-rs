@@ -20,9 +20,19 @@ mod tests {
         CommandImported::Command(builder) => {
           let mut r = builder.to_command();
           executor.spawn(async {
-            r.execute();
-            r.await;
+            r.execute().await;
           });
+        },
+        _ => {}
+      }
+    }
+  }
+
+  async fn run_async(name: &str, tasks: &HashMap<String, CommandImported>) {
+    if let Some(imported) = tasks.get(name) {
+      match imported {
+        CommandImported::Command(builder) => {
+          builder.to_command().execute().await;
         },
         _ => {}
       }
@@ -39,18 +49,18 @@ mod tests {
 
   #[test]
   fn parse_file() -> Result<(), Box<dyn std::error::Error>> {
+    futures::executor::block_on(parse_file_async());
+    Ok(())
+  }
+
+  async fn parse_file_async() {
     let path: PathBuf = Path::new("./")
       .join("tmp")
       .join("simple.yml")
       .normalize();
 
-    let tasks = load(&path)?;
-
-    let e = Executor::new();
-    run("echo", &e, &tasks);
-    run("john", &e, &tasks);
-    e.run();
-
-    Ok(())
+    if let Ok(context) = load(&path) {
+      context.run("how").await;
+    }
   }
 }

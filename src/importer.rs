@@ -3,6 +3,7 @@ use crate::{
   concurrent::Concurrent,
   utils::fs::Reader,
   error::Error,
+  context::Context,
 };
 use serde::Deserialize;
 use serde_yaml;
@@ -157,7 +158,7 @@ pub enum CommandImported {
 
 pub fn load<P>(
   path: P,
-) -> Result<std::collections::HashMap<String, CommandImported>, Error>
+) -> Result<Context, Error>
 where
   P: AsRef<std::path::Path> + Copy,
 {
@@ -222,7 +223,9 @@ where
     }
   }
 
-  Ok(tasks)
+  Ok(Context {
+    tasks
+  })
 }
 
 

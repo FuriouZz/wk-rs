@@ -1,13 +1,13 @@
 commands:
   echo:
-    # command: test.bat ${timeout} ${buddy}!
     command: echo Hello ${buddy}!
-    shell: "zsh"
     variables:
-      timeout: "10"
       buddy: World
   john:
     extend: echo
     variables:
-      timeout: "5"
       buddy: John
+  how:
+    command: echo How are you?
+    depends:
+      - john

@@ -7,6 +7,7 @@ pub enum Error {
   ExtendMissingCommand(String),
   ExtendConcurrent(String),
   LookupError(String),
+  CommandError(String),
 }
 
 impl std::fmt::Display for Error {
@@ -19,6 +20,7 @@ impl std::fmt::Display for Error {
       Error::ExtendMissingCommand(s) => write!(f, "Cannot extend '{}', it is missing.", s),
       Error::ExtendConcurrent(s) => write!(f, "Cannot extend '{}', it is concurrent.", s),
       Error::LookupError(s) => write!(f, "Lookup failed: {}", s),
+      Error::CommandError(s) => write!(f, "Command failed: {}", s),
     }
   }
 }
