@@ -28,7 +28,7 @@ mod tests {
     let path: PathBuf = Path::new("./").join("tmp").join("simple.yml").normalize();
 
     if let Ok(context) = load(&path) {
-      context.run("how").await;
+      context.run("how", None).await;
     }
   }
 }

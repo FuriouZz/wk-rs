@@ -26,22 +26,22 @@ impl Context {
     None
   }
 
-  pub fn find_command<S>(&self, name: S) -> Option<Command>
+  pub fn create_command<S>(&self, name: S, variables: Option<&HashMap<String, String>>) -> Option<Command>
   where
     S: AsRef<str>,
   {
     if let Some(builder) = self.find_builder(name) {
-      return Some(builder.to_command());
+      return Some(builder.to_command(variables));
     }
 
     None
   }
 
-  pub fn create_stack<S>(&self, name: S, order: &mut Vec<String>, tasks: &mut HashMap<String, Command>)
+  pub fn create_stack<S>(&self, name: S, order: &mut Vec<String>, tasks: &mut HashMap<String, Command>, variables: Option<&HashMap<String, String>>)
   where
     S: AsRef<str>,
   {
-    if let Some(mut command) = self.find_command(name.as_ref()) {
+    if let Some(mut command) = self.create_command(name.as_ref(), variables) {
 
       // Add dependencies
       if !command.dependencies.is_empty() {
@@ -49,7 +49,7 @@ impl Context {
           match self.find_builder(depname.as_str()) {
             Some(_dep) => {
               if depname != name.as_ref() && !tasks.contains_key(depname) {
-                self.create_stack(depname, order, tasks);
+                self.create_stack(depname, order, tasks, variables);
               }
             }
             None => {}
@@ -59,9 +59,10 @@ impl Context {
 
       let builder = self.find_builder(&name).expect("No command builder found.");
 
+      // Merge WK task with the shell task
       if let CommandKind::WK = builder.kind {
         let name: &String = &command.args[0];
-        self.create_stack(name, order, tasks);
+        self.create_stack(name, order, tasks, variables);
         if let Some(last) = order.last() {
           if last == name {
             order.pop();
@@ -74,6 +75,7 @@ impl Context {
         }
       }
 
+      // Add task if it does not exist
       let s = name.as_ref().to_owned();
       if !tasks.contains_key(&s) {
         order.push(s.clone());
@@ -83,7 +85,7 @@ impl Context {
     }
   }
 
-  pub async fn run<S>(&self, name: S) -> Result<Vec<CommandResult>, Error>
+  pub async fn run<S>(&self, name: S, variables: Option<&HashMap<String, String>>) -> Result<Vec<CommandResult>, Error>
   where
     S: AsRef<str>,
   {
@@ -94,7 +96,7 @@ impl Context {
 
     let mut order: Vec<String> = Vec::new();
     let mut commands: HashMap<String, Command> = HashMap::new();
-    self.create_stack(name.as_ref(), &mut order, &mut commands);
+    self.create_stack(name.as_ref(), &mut order, &mut commands, variables);
 
     // Run commands
     let mut results: Vec<CommandResult> = Vec::new();

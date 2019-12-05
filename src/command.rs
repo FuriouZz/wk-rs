@@ -1,5 +1,6 @@
 use crate::{context, error::Error};
 use std::{
+  collections::HashMap,
   env,
   future::Future,
   pin::Pin,
@@ -24,7 +25,7 @@ pub struct CommandBuilder {
   shell: Option<std::path::PathBuf>,
   hidden: bool,
   source: std::path::PathBuf,
-  variables: std::collections::HashMap<String, String>,
+  pub(crate) variables: HashMap<String, String>,
   description: Option<String>,
   dependencies: Vec<String>,
 }
@@ -39,7 +40,7 @@ impl CommandBuilder {
       shell: None,
       hidden: false,
       source: std::path::PathBuf::new(),
-      variables: std::collections::HashMap::new(),
+      variables: HashMap::new(),
       description: None,
       dependencies: Vec::new(),
     }
@@ -155,15 +156,19 @@ impl CommandBuilder {
     self
   }
 
-  pub fn with_variables(
-    &mut self,
-    variables: std::collections::HashMap<String, String>,
-  ) -> &mut Self {
+  pub fn with_variables(&mut self, variables: HashMap<String, String>) -> &mut Self {
     self.variables.extend(variables);
     self
   }
 
-  pub fn to_command(&self) -> Command {
+  pub fn to_command(&self, variables: Option<&HashMap<String, String>>) -> Command {
+    // Set variables
+    let mut vars = HashMap::new();
+    vars.extend(&self.variables);
+    if let Some(v) = variables {
+      vars.extend(v);
+    }
+
     // Set arguments
     let args: Vec<String> = self
       .args
@@ -171,7 +176,7 @@ impl CommandBuilder {
       .map(|arg: &String| {
         let mut arg_res = arg.to_string();
 
-        for (key, value) in self.variables.iter() {
+        for (key, value) in vars.iter() {
           let r_key = format!("${{{}}}", key);
           arg_res = arg_res.as_str().replace(r_key.as_str(), value);
         }

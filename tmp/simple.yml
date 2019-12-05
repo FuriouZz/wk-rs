@@ -1,8 +1,10 @@
+variables:
+  buddy: from WK
 commands:
   hello:
     command: echo Hello ${buddy}!
-    variables:
-      buddy: from WK
+    # variables:
+    #   buddy: from WK
   john:
     extend: hello
     variables:

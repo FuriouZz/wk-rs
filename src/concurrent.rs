@@ -4,7 +4,7 @@ pub struct Concurrent {
   source: std::path::PathBuf,
   hidden: bool,
   commands: Vec<String>,
-  variables: std::collections::HashMap<String, String>,
+  pub(crate) variables: std::collections::HashMap<String, String>,
   description: Option<String>,
   dependencies: Vec<String>,
 }

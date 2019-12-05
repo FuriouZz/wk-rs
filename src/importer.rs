@@ -4,12 +4,13 @@ use crate::{
 };
 use serde::Deserialize;
 use serde_yaml;
+use std::collections::HashMap;
 
 #[derive(Deserialize, Debug)]
 struct CommandsFile {
   extends: Option<Vec<String>>,
-  variables: Option<std::collections::HashMap<String, String>>,
-  commands: std::collections::HashMap<String, CommandFileDescription>,
+  variables: Option<HashMap<String, String>>,
+  commands: HashMap<String, CommandFileDescription>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -29,7 +30,7 @@ struct CommandDescription {
   hidden: Option<bool>,
   command: String,
   depends: Option<Vec<String>>,
-  variables: Option<std::collections::HashMap<String, String>>,
+  variables: Option<HashMap<String, String>>,
   description: Option<String>,
 }
 
@@ -66,7 +67,7 @@ struct ConcurrentDescription {
   hidden: Option<bool>,
   depends: Option<Vec<String>>,
   commands: Vec<String>,
-  variables: Option<std::collections::HashMap<String, String>>,
+  variables: Option<HashMap<String, String>>,
   description: Option<String>,
 }
 
@@ -100,7 +101,7 @@ struct ExtendedCommandDescription {
   hidden: Option<bool>,
   extend: String,
   depends: Option<Vec<String>>,
-  variables: Option<std::collections::HashMap<String, String>>,
+  variables: Option<HashMap<String, String>>,
   description: Option<String>,
 }
 
@@ -163,9 +164,11 @@ where
   let mut source = std::path::PathBuf::new();
   source.push(&path);
 
-  let mut tasks: std::collections::HashMap<String, CommandImported> =
-    std::collections::HashMap::new();
+  let mut tasks: HashMap<String, CommandImported> = HashMap::new();
   let mut extends: Vec<(String, ExtendedCommandDescription)> = Vec::new();
+
+  // Variables
+  let variables = file.variables.unwrap_or(HashMap::new());
 
   // Create tasks
   let mut commands = file.commands.into_iter();
@@ -176,17 +179,32 @@ where
     match command {
       CommandFileDescription::StringCommand(command) => {
         let mut task: CommandBuilder = command.as_str().parse::<CommandBuilder>()?;
-        task.with_name(name.clone()).with_source(source.clone());
+        let vars = task.variables.clone();
+        task
+          .with_name(name.clone())
+          .with_source(source.clone())
+          .with_variables(variables.clone()) // Apply file variables
+          .with_variables(vars);             // Override variables with task
         tasks.insert(name.clone(), CommandImported::Command(task));
       }
       CommandFileDescription::Command(task_desc) => {
         let mut task: CommandBuilder = task_desc.into();
-        task.with_name(name.clone()).with_source(source.clone());
+        let vars = task.variables.clone();
+        task
+          .with_name(name.clone())
+          .with_source(source.clone())
+          .with_variables(variables.clone()) // Apply file variables
+          .with_variables(vars);             // Override variables with task
         tasks.insert(name.clone(), CommandImported::Command(task));
       }
       CommandFileDescription::Concurrent(conc_desc) => {
         let mut conc: Concurrent = conc_desc.into();
-        conc.with_name(name.clone()).with_source(source.clone());
+        let vars = conc.variables.clone();
+        conc
+          .with_name(name.clone())
+          .with_source(source.clone())
+          .with_variables(variables.clone()) // Apply file variables
+          .with_variables(vars);             // Override variables with task
         tasks.insert(name.clone(), CommandImported::Concurrent(conc));
       }
       CommandFileDescription::ExtendedCommand(extd_desc) => {
@@ -218,6 +236,7 @@ where
     }
   }
 
+  // Return context
   Ok(Context { tasks })
 }
 
