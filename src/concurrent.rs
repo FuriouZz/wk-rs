@@ -1,10 +1,13 @@
+use std::{collections::HashMap, path::PathBuf};
+
 #[derive(Debug)]
 pub struct Concurrent {
   name: String,
-  source: std::path::PathBuf,
+  source: PathBuf,
   hidden: bool,
   commands: Vec<String>,
-  pub(crate) variables: std::collections::HashMap<String, String>,
+  pub(crate) variables: HashMap<String, String>,
+  pub(crate) environments: HashMap<String, String>,
   description: Option<String>,
   dependencies: Vec<String>,
 }
@@ -13,10 +16,11 @@ impl Concurrent {
   pub fn new() -> Self {
     Self {
       name: String::from("task"),
-      source: std::path::PathBuf::new(),
+      source: PathBuf::new(),
       hidden: false,
       commands: Vec::new(),
-      variables: std::collections::HashMap::new(),
+      variables: HashMap::new(),
+      environments: HashMap::new(),
       description: None,
       dependencies: Vec::new(),
     }
@@ -40,7 +44,7 @@ impl Concurrent {
 
   pub fn with_source<S>(&mut self, source: S) -> &mut Self
   where
-    S: Into<std::path::PathBuf>,
+    S: Into<PathBuf>,
   {
     self.source = source.into();
     self
@@ -89,11 +93,13 @@ impl Concurrent {
     self
   }
 
-  pub fn with_variables(
-    &mut self,
-    variables: std::collections::HashMap<String, String>,
-  ) -> &mut Self {
+  pub fn with_variables(&mut self, variables: HashMap<String, String>) -> &mut Self {
     self.variables.extend(variables);
+    self
+  }
+
+  pub fn with_environments(&mut self, environments: HashMap<String, String>) -> &mut Self {
+    self.environments.extend(environments);
     self
   }
 }

@@ -1,14 +1,16 @@
+environments:
+  Greeting: Welcome to
 variables:
-  buddy: from WK
+  buddy: WK
 commands:
   hello:
-    command: echo Hello ${buddy}!
-    # variables:
-    #   buddy: from WK
+    command: echo %Greeting% ${buddy}!
   john:
     extend: hello
     variables:
       buddy: John
+    environments:
+      Greeting: Hello
     depends:
       - hello
   echo:

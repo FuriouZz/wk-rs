@@ -1,4 +1,4 @@
-use crate::{context, error::Error};
+use crate::error::Error;
 use std::{
   collections::HashMap,
   env,
@@ -26,6 +26,7 @@ pub struct CommandBuilder {
   hidden: bool,
   source: std::path::PathBuf,
   pub(crate) variables: HashMap<String, String>,
+  pub(crate) environments: HashMap<String, String>,
   description: Option<String>,
   dependencies: Vec<String>,
 }
@@ -41,6 +42,7 @@ impl CommandBuilder {
       hidden: false,
       source: std::path::PathBuf::new(),
       variables: HashMap::new(),
+      environments: HashMap::new(),
       description: None,
       dependencies: Vec::new(),
     }
@@ -161,6 +163,11 @@ impl CommandBuilder {
     self
   }
 
+  pub fn with_environments(&mut self, environments: HashMap<String, String>) -> &mut Self {
+    self.environments.extend(environments);
+    self
+  }
+
   pub fn to_command(&self, variables: Option<&HashMap<String, String>>) -> Command {
     // Set variables
     let mut vars = HashMap::new();
@@ -215,10 +222,14 @@ impl CommandBuilder {
     // Set dependencies
     let dependencies = self.dependencies.clone();
 
+    // Set environments
+    let environments = self.environments.clone();
+
     Command {
       cwd,
       args,
       shell,
+      environments,
       dependencies,
     }
   }
@@ -244,6 +255,7 @@ pub struct Command {
   pub args: Vec<String>,
   pub shell: std::path::PathBuf,
   pub dependencies: Vec<String>,
+  pub environments: HashMap<String, String>,
 }
 
 impl Command {
@@ -274,6 +286,10 @@ impl CommandFuture {
     // Set current directory
     if let Some(cwd) = &command.cwd {
       cmd.current_dir(cwd);
+    }
+
+    for env in command.environments.iter() {
+      cmd.env(env.0, env.1);
     }
 
     // Execute and store child process

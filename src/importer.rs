@@ -9,8 +9,9 @@ use std::collections::HashMap;
 #[derive(Deserialize, Debug)]
 struct CommandsFile {
   extends: Option<Vec<String>>,
-  variables: Option<HashMap<String, String>>,
   commands: HashMap<String, CommandFileDescription>,
+  variables: Option<HashMap<String, String>>,
+  environments: Option<HashMap<String, String>>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -31,6 +32,7 @@ struct CommandDescription {
   command: String,
   depends: Option<Vec<String>>,
   variables: Option<HashMap<String, String>>,
+  environments: Option<HashMap<String, String>>,
   description: Option<String>,
 }
 
@@ -54,6 +56,9 @@ impl From<CommandDescription> for CommandBuilder {
     if let Some(variables) = value.variables {
       task.with_variables(variables);
     }
+    if let Some(environments) = value.environments {
+      task.with_environments(environments);
+    }
     if let Some(description) = value.description {
       task.with_description(description);
     }
@@ -69,6 +74,7 @@ struct ConcurrentDescription {
   commands: Vec<String>,
   variables: Option<HashMap<String, String>>,
   description: Option<String>,
+  environments: Option<HashMap<String, String>>,
 }
 
 impl From<ConcurrentDescription> for Concurrent {
@@ -88,6 +94,9 @@ impl From<ConcurrentDescription> for Concurrent {
     if let Some(variables) = value.variables {
       concurrent.with_variables(variables);
     }
+    if let Some(environments) = value.environments {
+      concurrent.with_environments(environments);
+    }
 
     return concurrent;
   }
@@ -96,13 +105,14 @@ impl From<ConcurrentDescription> for Concurrent {
 #[derive(Deserialize, Debug)]
 struct ExtendedCommandDescription {
   cwd: Option<std::path::PathBuf>,
-  shell: Option<std::path::PathBuf>,
   args: Option<Vec<String>>,
+  shell: Option<std::path::PathBuf>,
   hidden: Option<bool>,
   extend: String,
   depends: Option<Vec<String>>,
   variables: Option<HashMap<String, String>>,
   description: Option<String>,
+  environments: Option<HashMap<String, String>>,
 }
 
 pub struct ExtendedCommand {
@@ -129,6 +139,9 @@ impl From<ExtendedCommand> for CommandBuilder {
     }
     if let Some(variables) = value.desc.variables {
       task.with_variables(variables);
+    }
+    if let Some(environments) = value.desc.environments {
+      task.with_environments(environments);
     }
     if let Some(description) = value.desc.description {
       task.with_description(description);
@@ -170,6 +183,9 @@ where
   // Variables
   let variables = file.variables.unwrap_or(HashMap::new());
 
+  // Environments
+  let environments = file.environments.unwrap_or(HashMap::new());
+
   // Create tasks
   let mut commands = file.commands.into_iter();
   while let Some((key, value)) = commands.next() {
@@ -180,31 +196,40 @@ where
       CommandFileDescription::StringCommand(command) => {
         let mut task: CommandBuilder = command.as_str().parse::<CommandBuilder>()?;
         let vars = task.variables.clone();
+        let envs = task.environments.clone();
         task
           .with_name(name.clone())
           .with_source(source.clone())
           .with_variables(variables.clone()) // Apply file variables
-          .with_variables(vars);             // Override variables with task
+          .with_variables(vars) // Override variables with task
+          .with_environments(environments.clone()) // Apply file environments
+          .with_environments(envs); // Override environments with task
         tasks.insert(name.clone(), CommandImported::Command(task));
       }
       CommandFileDescription::Command(task_desc) => {
         let mut task: CommandBuilder = task_desc.into();
         let vars = task.variables.clone();
+        let envs = task.environments.clone();
         task
           .with_name(name.clone())
           .with_source(source.clone())
           .with_variables(variables.clone()) // Apply file variables
-          .with_variables(vars);             // Override variables with task
+          .with_variables(vars) // Override variables with task
+          .with_environments(environments.clone()) // Apply file environments
+          .with_environments(envs); // Override environments with task
         tasks.insert(name.clone(), CommandImported::Command(task));
       }
       CommandFileDescription::Concurrent(conc_desc) => {
         let mut conc: Concurrent = conc_desc.into();
         let vars = conc.variables.clone();
+        let envs = conc.environments.clone();
         conc
           .with_name(name.clone())
           .with_source(source.clone())
           .with_variables(variables.clone()) // Apply file variables
-          .with_variables(vars);             // Override variables with task
+          .with_variables(vars) // Override variables with task
+          .with_environments(environments.clone()) // Apply file environments
+          .with_environments(envs); // Override environments with task
         tasks.insert(name.clone(), CommandImported::Concurrent(conc));
       }
       CommandFileDescription::ExtendedCommand(extd_desc) => {

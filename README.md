@@ -2,10 +2,8 @@
 
 ## Todo
 
-* Variables arguments `--var.someone=John`
-* Add environment variables
-* Merge with global environment variables
+* Extend file
+* Variables arguments `--var.buddy=John`
 * Conditional task (platform specific `macos` `win32` `unix`)
 * Merge with global conditions
-* Extend file
 * Concurrent task
