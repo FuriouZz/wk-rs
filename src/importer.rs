@@ -2,13 +2,14 @@ use crate::{
   command::CommandBuilder, concurrent::Concurrent, context::Context, error::Error,
   utils::fs::Reader,
 };
+use std::path::{Path, PathBuf};
 use serde::Deserialize;
 use serde_yaml;
 use std::collections::HashMap;
 
 #[derive(Deserialize, Debug)]
 struct CommandsFile {
-  extends: Option<Vec<String>>,
+  extends: Option<Vec<PathBuf>>,
   commands: HashMap<String, CommandFileDescription>,
   variables: Option<HashMap<String, String>>,
   environments: Option<HashMap<String, String>>,
@@ -25,9 +26,9 @@ enum CommandFileDescription {
 
 #[derive(Deserialize, Debug)]
 struct CommandDescription {
-  cwd: Option<std::path::PathBuf>,
+  cwd: Option<PathBuf>,
   args: Option<Vec<String>>,
-  shell: Option<std::path::PathBuf>,
+  shell: Option<PathBuf>,
   hidden: Option<bool>,
   command: String,
   depends: Option<Vec<String>>,
@@ -104,9 +105,9 @@ impl From<ConcurrentDescription> for Concurrent {
 
 #[derive(Deserialize, Debug)]
 struct ExtendedCommandDescription {
-  cwd: Option<std::path::PathBuf>,
+  cwd: Option<PathBuf>,
   args: Option<Vec<String>>,
-  shell: Option<std::path::PathBuf>,
+  shell: Option<PathBuf>,
   hidden: Option<bool>,
   extend: String,
   depends: Option<Vec<String>>,
@@ -151,7 +152,7 @@ impl From<ExtendedCommand> for CommandBuilder {
   }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum CommandImported {
   Command(CommandBuilder),
   Concurrent(Concurrent),
@@ -169,12 +170,12 @@ pub enum CommandImported {
 
 pub fn load<P>(path: P) -> Result<Context, Error>
 where
-  P: AsRef<std::path::Path> + Copy,
+  P: AsRef<Path> + Copy,
 {
   let content = Reader::text(path)?;
   let file: CommandsFile = serde_yaml::from_str(content.as_str())?;
 
-  let mut source = std::path::PathBuf::new();
+  let mut source = PathBuf::new();
   source.push(&path);
 
   let mut tasks: HashMap<String, CommandImported> = HashMap::new();
@@ -262,30 +263,41 @@ where
   }
 
   // Return context
-  Ok(Context { tasks })
+  let mut context = Context { tasks };
+
+  if let Some(context_extends) = file.extends {
+    for f in context_extends {
+      let relative_path = source.parent().expect("Source has no parent");
+      let ff = relative_path.join(f);
+      let c = load(ff.as_path())?;
+      context.extend(&c);
+    }
+  }
+
+  Ok(context)
 }
 
 const FILES: [&'static str; 2] = ["commands.yml", "Commands.yml"];
 
-pub fn lookup_dir<P>(dir_path: P) -> Result<std::path::PathBuf, Error>
+pub fn lookup_dir<P>(dir_path: P) -> Result<PathBuf, Error>
 where
-  P: AsRef<std::path::Path>,
+  P: AsRef<Path>,
 {
   lookup(dir_path, None)
 }
 
-pub fn lookup<P>(dir_path: P, patterns: Option<Vec<&str>>) -> Result<std::path::PathBuf, Error>
+pub fn lookup<P>(dir_path: P, patterns: Option<Vec<&str>>) -> Result<PathBuf, Error>
 where
-  P: AsRef<std::path::Path>,
+  P: AsRef<Path>,
 {
   let patterns = patterns.unwrap_or(FILES.to_vec());
 
   let dir_path = dir_path.as_ref();
-  let mut dir_pathbuf = std::path::PathBuf::new().join(dir_path);
+  let mut dir_pathbuf = PathBuf::new().join(dir_path);
 
   if !dir_pathbuf.is_absolute() {
     if let Ok(cwd) = std::env::current_dir() {
-      dir_pathbuf = std::path::PathBuf::new().join(cwd).join(dir_pathbuf);
+      dir_pathbuf = PathBuf::new().join(cwd).join(dir_pathbuf);
     }
   }
 
@@ -297,9 +309,9 @@ where
   let dir_path = dir_pathbuf.as_path();
   let readdir = std::fs::read_dir(dir_path)?;
 
-  let items: Vec<std::path::PathBuf> = patterns
+  let items: Vec<PathBuf> = patterns
     .iter()
-    .map(|pattern| std::path::PathBuf::new().join(&dir_path).join(&pattern))
+    .map(|pattern| PathBuf::new().join(&dir_path).join(&pattern))
     .collect();
 
   let mut it = readdir.into_iter();

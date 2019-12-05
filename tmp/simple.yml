@@ -1,3 +1,5 @@
+extends:
+  - ./simple2.yml
 environments:
   Greeting: Welcome to
 variables:

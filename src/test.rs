@@ -29,6 +29,7 @@ mod tests {
 
     if let Ok(context) = load(&path) {
       context.run("how", None).await;
+      // context.run("ls", None).await;
     }
   }
 }

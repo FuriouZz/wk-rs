@@ -5,6 +5,7 @@ use crate::{
 };
 use std::collections::HashMap;
 
+#[derive(Debug)]
 pub struct Context {
   pub(crate) tasks: HashMap<String, CommandImported>,
 }
@@ -107,5 +108,11 @@ impl Context {
     }
 
     Ok(results)
+  }
+
+  pub fn extend(&mut self, context: &Context) {
+    for task in context.tasks.clone() {
+      self.tasks.insert(task.0, task.1);
+    }
   }
 }
