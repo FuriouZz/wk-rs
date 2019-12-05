@@ -48,7 +48,7 @@ impl Context {
         for depname in &command.dependencies {
           match self.find_builder(depname.as_str()) {
             Some(_dep) => {
-              if !tasks.contains_key(depname) {
+              if depname != name.as_ref() && !tasks.contains_key(depname) {
                 self.create_stack(depname, order, tasks);
               }
             }

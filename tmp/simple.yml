@@ -16,3 +16,4 @@ commands:
     depends:
       - john
       - hello
+      - how # Ho ho self dependent
