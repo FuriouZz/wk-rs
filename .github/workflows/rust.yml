@@ -6,7 +6,7 @@ on:
       - master
 
 jobs:
-  build:linux:
+  build_linux:
     name: linux
     runs-on: ubuntu-latest
     steps:
@@ -15,7 +15,7 @@ jobs:
       run: cargo build --release --verbose
 #     - name: Run tests
 #       run: cargo test --verbose
-  build:osx:
+  build_osx:
     name: osx
     runs-on: macOS-latest
     steps:
@@ -24,7 +24,7 @@ jobs:
       run: cargo build --release --verbose
 #     - name: Run tests
 #       run: cargo test --verbose
-  build:win32:
+  build_win32:
     name: win32
     runs-on: windows-latest
     steps:
