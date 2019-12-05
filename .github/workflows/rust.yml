@@ -13,9 +13,6 @@ jobs:
       matrix:
         rust:
           - stable
-          - beta
-          - nightly
-          - 1.31.0  # MSRV
     steps:
       - uses: actions/checkout@master
       - uses: actions-rs/cargo@v1
@@ -31,11 +28,12 @@ jobs:
       matrix:
         rust:
           - stable
-          - beta
-          - nightly
-          - 1.31.0  # MSRV
     steps:
       - uses: actions/checkout@master
+      - uses: actions-rs/toolchain@v1
+        with:
+            toolchain: stable
+            target: apple-darwin  
       - uses: actions-rs/cargo@v1
         with:
           command: build
@@ -49,9 +47,6 @@ jobs:
       matrix:
         rust:
           - stable
-          - beta
-          - nightly
-          - 1.31.0  # MSRV
     steps:
       - uses: actions/checkout@master
       - uses: actions-rs/cargo@v1
