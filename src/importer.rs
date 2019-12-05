@@ -127,7 +127,7 @@ impl From<ExtendedCommand> for CommandBuilder {
     task.with_cwd(value.desc.cwd);
 
     if let Some(args) = value.desc.args {
-      task.with_args(args);
+      task.override_args(args);
     }
     if let Some(shell) = value.desc.shell {
       task.with_shell(shell);

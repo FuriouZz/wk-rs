@@ -158,6 +158,18 @@ impl CommandBuilder {
     self
   }
 
+  pub fn override_args<I, S>(&mut self, args: I) -> &mut Self
+  where
+    I: IntoIterator<Item = S>,
+    S: Into<String>,
+  {
+    self.args.clear();
+    for arg in args {
+      self.with_arg(arg);
+    }
+    self
+  }
+
   pub fn with_variables(&mut self, variables: HashMap<String, String>) -> &mut Self {
     self.variables.extend(variables);
     self
