@@ -20,7 +20,7 @@ pub struct CommandBuilder {
   cwd: Option<std::path::PathBuf>,
   args: Vec<String>,
   name: String,
-  kind: CommandKind,
+  pub(crate) kind: CommandKind,
   shell: Option<std::path::PathBuf>,
   hidden: bool,
   source: std::path::PathBuf,
@@ -164,9 +164,6 @@ impl CommandBuilder {
   }
 
   pub fn to_command(&self) -> Command {
-    // Set kind
-    let kind = self.kind.clone();
-
     // Set arguments
     let args: Vec<String> = self
       .args
@@ -216,7 +213,6 @@ impl CommandBuilder {
     Command {
       cwd,
       args,
-      kind,
       shell,
       dependencies,
     }
@@ -239,28 +235,15 @@ impl std::str::FromStr for CommandBuilder {
 
 #[derive(Debug)]
 pub struct Command {
-  cwd: Option<std::path::PathBuf>,
-  args: Vec<String>,
-  kind: CommandKind,
-  shell: std::path::PathBuf,
-  pub(crate) dependencies: Vec<String>,
+  pub cwd: Option<std::path::PathBuf>,
+  pub args: Vec<String>,
+  pub shell: std::path::PathBuf,
+  pub dependencies: Vec<String>,
 }
 
 impl Command {
-  pub fn execute(self, cx: &context::Context) -> CommandFuture {
-    if let CommandKind::Shell = self.kind {
-      return CommandFuture::new(&self);
-    }
-
-    let name = &self.args[0];
-    if let Some(mut command) = cx.find_command(name) {
-      command.cwd = self.cwd;
-      command.args.extend(self.args[1..].to_vec());
-      return command.execute(cx);
-    }
-
-    println!("[TODO] Handle non-existing command");
-    return CommandFuture::new(&self);
+  pub fn execute(self) -> CommandFuture {
+    CommandFuture::new(&self)
   }
 }
 

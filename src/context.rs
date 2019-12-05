@@ -1,5 +1,5 @@
 use crate::{
-  command::{Command, CommandBuilder, CommandResult},
+  command::{Command, CommandBuilder, CommandKind, CommandResult},
   error::Error,
   importer::CommandImported,
 };
@@ -37,38 +37,73 @@ impl Context {
     None
   }
 
-  pub async fn run<S>(&self, name: S) -> Result<Vec<CommandResult>, Error>
+  pub fn create_stack<S>(&self, name: S, order: &mut Vec<String>, tasks: &mut HashMap<String, Command>)
   where
     S: AsRef<str>,
   {
-    if let Some(command) = self.find_command(name.as_ref()) {
-      let mut stack: Vec<Command> = Vec::new();
+    if let Some(mut command) = self.find_command(name.as_ref()) {
 
       // Add dependencies
       if !command.dependencies.is_empty() {
         for depname in &command.dependencies {
-          match self.find_command(depname.as_str()) {
-            Some(dep) => {
-              stack.push(dep);
+          match self.find_builder(depname.as_str()) {
+            Some(_dep) => {
+              if !tasks.contains_key(depname) {
+                self.create_stack(depname, order, tasks);
+              }
             }
             None => {}
           }
         }
       }
 
-      // Add current command
-      stack.push(command);
+      let builder = self.find_builder(&name).expect("No command builder found.");
 
-      // Run commands
-      let mut results: Vec<CommandResult> = Vec::new();
-      for c in stack.into_iter() {
-        results.push(c.execute(&self).await);
+      if let CommandKind::WK = builder.kind {
+        let name: &String = &command.args[0];
+        self.create_stack(name, order, tasks);
+        if let Some(last) = order.last() {
+          if last == name {
+            order.pop();
+            let mut p = tasks.remove(name).unwrap();
+            p.cwd = command.cwd;
+            p.shell = command.shell;
+            p.args.extend(command.args[1..].to_vec());
+            command = p;
+          }
+        }
       }
 
-      return Ok(results);
+      let s = name.as_ref().to_owned();
+      if !tasks.contains_key(&s) {
+        order.push(s.clone());
+        tasks.insert(s, command);
+      }
+
+    }
+  }
+
+  pub async fn run<S>(&self, name: S) -> Result<Vec<CommandResult>, Error>
+  where
+    S: AsRef<str>,
+  {
+    if let None = self.find_builder(name.as_ref()) {
+      let err = format!("Command \"{}\" not found", name.as_ref().to_string());
+      return Err(Error::CommandError(err));
     }
 
-    let err = format!("Command \"{}\" not found", name.as_ref().to_string());
-    Err(Error::CommandError(err))
+    let mut order: Vec<String> = Vec::new();
+    let mut commands: HashMap<String, Command> = HashMap::new();
+    self.create_stack(name.as_ref(), &mut order, &mut commands);
+
+    // Run commands
+    let mut results: Vec<CommandResult> = Vec::new();
+    for name in order.iter() {
+      if let Some(c) = commands.remove(name) {
+        results.push(c.execute().await);
+      }
+    }
+
+    Ok(results)
   }
 }
