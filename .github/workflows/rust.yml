@@ -9,27 +9,54 @@ jobs:
   build_linux:
     name: linux
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - stable
+          - beta
+          - nightly
+          - 1.31.0  # MSRV
     steps:
-    - uses: actions/checkout@v1
-    - name: Build
-      run: cargo build --release --verbose
+      - uses: actions/checkout@master
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
 #     - name: Run tests
 #       run: cargo test --verbose
   build_osx:
     name: osx
     runs-on: macOS-latest
+    strategy:
+      matrix:
+        rust:
+          - stable
+          - beta
+          - nightly
+          - 1.31.0  # MSRV
     steps:
-    - uses: actions/checkout@v1
-    - name: Build
-      run: cargo build --release --verbose
+      - uses: actions/checkout@master
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
 #     - name: Run tests
 #       run: cargo test --verbose
   build_win32:
     name: win32
     runs-on: windows-latest
+    strategy:
+      matrix:
+        rust:
+          - stable
+          - beta
+          - nightly
+          - 1.31.0  # MSRV
     steps:
-    - uses: actions/checkout@v1
-    - name: Build
-      run: cargo build --release --verbose
+      - uses: actions/checkout@master
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
 #     - name: Run tests
 #       run: cargo test --verbose
