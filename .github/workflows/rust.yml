@@ -1,0 +1,57 @@
+name: Rust
+
+on: 
+  push:
+    branches: 
+      - master
+
+jobs:
+  build_linux:
+    name: linux
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - stable
+    steps:
+      - uses: actions/checkout@master
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
+#     - name: Run tests
+#       run: cargo test --verbose
+#   build_osx:
+#     name: osx
+#     runs-on: macOS-latest
+#     strategy:
+#       matrix:
+#         rust:
+#           - stable
+#     steps:
+#       - uses: actions/checkout@master
+#       - uses: actions-rs/toolchain@v1
+#         with:
+#             toolchain: stable
+#             target: apple-darwin  
+#       - uses: actions-rs/cargo@v1
+#         with:
+#           command: build
+#           args: --release
+# #     - name: Run tests
+# #       run: cargo test --verbose
+  build_win32:
+    name: win32
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        rust:
+          - stable
+    steps:
+      - uses: actions/checkout@master
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
+#     - name: Run tests
+#       run: cargo test --verbose
