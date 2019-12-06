@@ -12,11 +12,14 @@ mod utils;
 use crate::{
   error::Error,
   context::Context,
-  importer::{load, lookup_dir},
+  importer::lookup_and_load,
 };
 use futures::executor::block_on;
 
-async fn run(context: &Context) -> Result<(), Error> {
+async fn run() -> Result<(), Error> {
+  let dir_path = std::env::current_dir()?;
+  let context = lookup_and_load(dir_path.as_path())?;
+
   let args: Vec<String> = std::env::args()
   .enumerate()
   .filter_map(|a| {
@@ -40,8 +43,8 @@ async fn run(context: &Context) -> Result<(), Error> {
 }
 
 fn main() -> Result<(), Error> {
-  let dir_path = std::env::current_dir()?;
-  let res = lookup_dir(dir_path)?;
-  let context = load(res.as_path())?;
-  block_on(run(&context))
+  if let Err(e) = block_on(run()) {
+    println!("{:#}", e);
+  }
+  Ok(())
 }

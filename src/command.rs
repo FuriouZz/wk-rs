@@ -252,7 +252,7 @@ impl std::str::FromStr for CommandBuilder {
 
   fn from_str(s: &str) -> Result<Self, Self::Err> {
     if s.is_empty() {
-      return Err(Error::StringEmpty);
+      return Err(Error::CommandError("Cannot convert an empty string to command".to_string()));
     }
 
     let mut command = CommandBuilder::new();
@@ -326,9 +326,9 @@ impl Future for CommandFuture {
     match runner.process.take() {
       Some(Ok(mut child)) => match child.wait() {
         Ok(e) => Poll::Ready(Ok(e.code())),
-        Err(e) => Poll::Ready(Err(Error::IoError(e))),
+        Err(e) => Poll::Ready(Err(e.into())),
       },
-      Some(Err(e)) => Poll::Ready(Err(Error::IoError(e))),
+      Some(Err(e)) => Poll::Ready(Err(e.into())),
       None => {
         wake();
         Poll::Pending

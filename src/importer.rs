@@ -2,10 +2,10 @@ use crate::{
   command::CommandBuilder, concurrent::Concurrent, context::Context, error::Error,
   utils::fs::Reader,
 };
-use std::path::{Path, PathBuf};
 use serde::Deserialize;
 use serde_yaml;
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 #[derive(Deserialize, Debug)]
 struct CommandsFile {
@@ -255,10 +255,16 @@ where
         task.with_name(name.clone());
         tasks.insert(name.clone(), CommandImported::Command(task));
       } else {
-        return Err(Error::ExtendConcurrent(command.extend.clone()));
+        return Err(Error::ImportError(format!(
+          "Cannot extend {}",
+          command.extend.clone()
+        )));
       }
     } else {
-      return Err(Error::ExtendMissingCommand(command.extend.clone()));
+      return Err(Error::ImportError(format!(
+        "Cannot extend {}",
+        command.extend.clone()
+      )));
     }
   }
 
@@ -269,8 +275,14 @@ where
     for f in context_extends {
       let relative_path = source.parent().expect("Source has no parent");
       let ff = relative_path.join(f);
-      let c = load(ff.as_path())?;
-      context.extend(&c);
+      let fpath = ff.as_path();
+
+      if fpath != source.as_path() {
+        let c = load(fpath)?;
+        context.extend(&c);
+      } else {
+        return Err(Error::ImportError(format!("Cannot extend {:?}", fpath).to_string()));
+      }
     }
   }
 
@@ -303,7 +315,7 @@ where
 
   if !dir_pathbuf.is_dir() {
     let d = dir_pathbuf.display();
-    return Err(Error::LookupError(format!("\"{}\" is not a directory", d)));
+    return Err(Error::ImportError(format!("\"{}\" is not a directory", d)));
   }
 
   let dir_path = dir_pathbuf.as_path();
@@ -324,5 +336,13 @@ where
     }
   }
 
-  Err(Error::LookupError("No commands found.".to_string()))
+  Err(Error::ImportError("No commands found.".to_string()))
+}
+
+pub fn lookup_and_load<P>(dir_path: P) -> Result<Context, Error>
+where
+  P: AsRef<Path>,
+{
+  let path = lookup_dir(dir_path)?;
+  load(path.as_path())
 }
