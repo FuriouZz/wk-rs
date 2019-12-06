@@ -4,13 +4,15 @@ environments:
   Greeting: Welcome to
 variables:
   buddy: WK
+  number: 3
 commands:
   hello:
-    command: echo %Greeting% ${buddy}!
+    command: echo %Greeting% ${buddy} ${number}!
   john:
     extend: hello
     variables:
       buddy: John
+      number: 0
     environments:
       Greeting: Hello
     depends:

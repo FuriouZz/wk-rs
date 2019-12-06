@@ -7,12 +7,14 @@ use serde_yaml;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+const FILES: [&'static str; 2] = ["commands.yml", "Commands.yml"];
+
 #[derive(Deserialize, Debug)]
 struct CommandsFile {
   extends: Option<Vec<PathBuf>>,
   commands: HashMap<String, CommandFileDescription>,
-  variables: Option<HashMap<String, String>>,
-  environments: Option<HashMap<String, String>>,
+  variables: Option<HashMap<String, Primitive>>,
+  environments: Option<HashMap<String, Primitive>>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -32,9 +34,53 @@ struct CommandDescription {
   hidden: Option<bool>,
   command: String,
   depends: Option<Vec<String>>,
-  variables: Option<HashMap<String, String>>,
-  environments: Option<HashMap<String, String>>,
+  variables: Option<HashMap<String, Primitive>>,
+  environments: Option<HashMap<String, Primitive>>,
   description: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
+struct ExtendedCommandDescription {
+  cwd: Option<PathBuf>,
+  args: Option<Vec<String>>,
+  shell: Option<PathBuf>,
+  hidden: Option<bool>,
+  extend: String,
+  depends: Option<Vec<String>>,
+  variables: Option<HashMap<String, Primitive>>,
+  description: Option<String>,
+  environments: Option<HashMap<String, Primitive>>,
+}
+
+#[derive(Deserialize, Debug)]
+struct ConcurrentDescription {
+  hidden: Option<bool>,
+  depends: Option<Vec<String>>,
+  commands: Vec<String>,
+  variables: Option<HashMap<String, Primitive>>,
+  description: Option<String>,
+  environments: Option<HashMap<String, Primitive>>,
+}
+
+pub struct ExtendedCommand {
+  extend: CommandBuilder,
+  desc: ExtendedCommandDescription,
+}
+
+// Later implementation for different variable types
+#[derive(Deserialize, Debug, Clone)]
+#[serde(untagged)]
+enum Primitive {
+  S(String),
+  B(bool),
+  F(f64),
+  I(i32),
+}
+
+#[derive(Debug, Clone)]
+pub enum CommandImported {
+  Command(CommandBuilder),
+  Concurrent(Concurrent),
 }
 
 impl From<CommandDescription> for CommandBuilder {
@@ -55,10 +101,10 @@ impl From<CommandDescription> for CommandBuilder {
       task.with_dependencies(dependencies);
     }
     if let Some(variables) = value.variables {
-      task.with_variables(variables);
+      task.with_variables(ptos(variables));
     }
     if let Some(environments) = value.environments {
-      task.with_environments(environments);
+      task.with_environments(ptos(environments));
     }
     if let Some(description) = value.description {
       task.with_description(description);
@@ -66,16 +112,6 @@ impl From<CommandDescription> for CommandBuilder {
 
     return task;
   }
-}
-
-#[derive(Deserialize, Debug)]
-struct ConcurrentDescription {
-  hidden: Option<bool>,
-  depends: Option<Vec<String>>,
-  commands: Vec<String>,
-  variables: Option<HashMap<String, String>>,
-  description: Option<String>,
-  environments: Option<HashMap<String, String>>,
 }
 
 impl From<ConcurrentDescription> for Concurrent {
@@ -93,32 +129,14 @@ impl From<ConcurrentDescription> for Concurrent {
       concurrent.with_description(description);
     }
     if let Some(variables) = value.variables {
-      concurrent.with_variables(variables);
+      concurrent.with_variables(ptos(variables));
     }
     if let Some(environments) = value.environments {
-      concurrent.with_environments(environments);
+      concurrent.with_environments(ptos(environments));
     }
 
     return concurrent;
   }
-}
-
-#[derive(Deserialize, Debug)]
-struct ExtendedCommandDescription {
-  cwd: Option<PathBuf>,
-  args: Option<Vec<String>>,
-  shell: Option<PathBuf>,
-  hidden: Option<bool>,
-  extend: String,
-  depends: Option<Vec<String>>,
-  variables: Option<HashMap<String, String>>,
-  description: Option<String>,
-  environments: Option<HashMap<String, String>>,
-}
-
-pub struct ExtendedCommand {
-  extend: CommandBuilder,
-  desc: ExtendedCommandDescription,
 }
 
 impl From<ExtendedCommand> for CommandBuilder {
@@ -139,10 +157,10 @@ impl From<ExtendedCommand> for CommandBuilder {
       task.with_dependencies(dependencies);
     }
     if let Some(variables) = value.desc.variables {
-      task.with_variables(variables);
+      task.with_variables(ptos(variables));
     }
     if let Some(environments) = value.desc.environments {
-      task.with_environments(environments);
+      task.with_environments(ptos(environments));
     }
     if let Some(description) = value.desc.description {
       task.with_description(description);
@@ -152,21 +170,24 @@ impl From<ExtendedCommand> for CommandBuilder {
   }
 }
 
-#[derive(Debug, Clone)]
-pub enum CommandImported {
-  Command(CommandBuilder),
-  Concurrent(Concurrent),
+impl From<Primitive> for String {
+  fn from(value: Primitive) -> Self {
+    match value {
+      Primitive::S(s) => s,
+      Primitive::F(f) => f.to_string(),
+      Primitive::I(i) => i.to_string(),
+      Primitive::B(b) => b.to_string(),
+    }
+  }
 }
 
-// Later implementation for different variable types
-// #[derive(Deserialize, Debug)]
-// #[serde(untagged)]
-// enum Primitive {
-//   S(String),
-//   B(bool),
-//   F64(f64),
-//   I(i64),
-// }
+fn ptos(map: HashMap<String, Primitive>) -> HashMap<String, String> {
+  let mut h: HashMap<String, String> = HashMap::new();
+  for item in map {
+    h.insert(item.0, item.1.into());
+  }
+  return h;
+}
 
 pub fn load<P>(path: P) -> Result<Context, Error>
 where
@@ -201,9 +222,9 @@ where
         task
           .with_name(name.clone())
           .with_source(source.clone())
-          .with_variables(variables.clone()) // Apply file variables
+          .with_variables(ptos(variables.clone())) // Apply file variables
           .with_variables(vars) // Override variables with task
-          .with_environments(environments.clone()) // Apply file environments
+          .with_environments(ptos(environments.clone())) // Apply file environments
           .with_environments(envs); // Override environments with task
         tasks.insert(name.clone(), CommandImported::Command(task));
       }
@@ -214,9 +235,9 @@ where
         task
           .with_name(name.clone())
           .with_source(source.clone())
-          .with_variables(variables.clone()) // Apply file variables
+          .with_variables(ptos(variables.clone())) // Apply file variables
           .with_variables(vars) // Override variables with task
-          .with_environments(environments.clone()) // Apply file environments
+          .with_environments(ptos(environments.clone())) // Apply file environments
           .with_environments(envs); // Override environments with task
         tasks.insert(name.clone(), CommandImported::Command(task));
       }
@@ -227,9 +248,9 @@ where
         conc
           .with_name(name.clone())
           .with_source(source.clone())
-          .with_variables(variables.clone()) // Apply file variables
+          .with_variables(ptos(variables.clone())) // Apply file variables
           .with_variables(vars) // Override variables with task
-          .with_environments(environments.clone()) // Apply file environments
+          .with_environments(ptos(environments.clone())) // Apply file environments
           .with_environments(envs); // Override environments with task
         tasks.insert(name.clone(), CommandImported::Concurrent(conc));
       }
@@ -288,8 +309,6 @@ where
 
   Ok(context)
 }
-
-const FILES: [&'static str; 2] = ["commands.yml", "Commands.yml"];
 
 pub fn lookup_dir<P>(dir_path: P) -> Result<PathBuf, Error>
 where
