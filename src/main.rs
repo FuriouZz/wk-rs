@@ -11,8 +11,8 @@ mod utils;
 
 use crate::{
   error::Error,
-  context::Context,
   importer::lookup_and_load,
+  utils::argv,
 };
 use futures::executor::block_on;
 
@@ -31,11 +31,15 @@ async fn run() -> Result<(), Error> {
   })
   .collect();
 
-  if args.len() > 0 {
-    context.run(&args[0], None).await?;
+  let argv = argv::parse(args.iter());
+  let vars = argv::extract_vars(&argv);
+
+  if let Some(task) = argv.get("0") {
+    context.run(task, Some(&vars)).await?;
   } else {
+    println!("Task availables");
     for task in context.tasks.keys() {
-      println!("{}", task);
+      println!("  {}", task);
     }
   }
 
