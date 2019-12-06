@@ -4,7 +4,6 @@ mod command;
 mod concurrent;
 mod context;
 mod error;
-mod executor;
 mod importer;
 mod test;
 mod utils;
