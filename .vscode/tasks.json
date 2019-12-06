@@ -12,6 +12,11 @@
       "label": "test:parse_file",
       "type": "shell",
       "command": "cargo test --package wk --bin wk -- parse_file --nocapture",
+    },
+    {
+      "label": "test:parse_arguments",
+      "type": "shell",
+      "command": "cargo test --package wk --bin wk -- parse_arguments --nocapture",
     }
   ]
 }
