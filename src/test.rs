@@ -34,19 +34,21 @@ mod tests {
     let args = vec![
       "wk:hello",
       "--var.buddy=\"john\"",
+      "--var.buddy0=",
       "--var.greeting",
       "hello",
       "--var.debug",
       "-d",
-      "--var",
-      "-var",
-      "--var.=",
+      "--var0",
+      "-var1",
+      "--var2.=",
       "--v=toto=plouf",
     ];
-    let (_params, argv) = crate::utils::argv::parse(args.into_iter());
-    println!("{:?}", argv);
-    let vars = crate::utils::argv::extract_vars(&argv);
-    println!("{:?}", vars);
+    println!("{:?}", args.join(" "));
+    let res = crate::utils::argv::extract_vars(args.into_iter());
+    println!("{:?}", res);
+    // let vars = crate::utils::argv::extract_vars(&argv);
+    // println!("{:?}", vars);
     Ok(())
   }
 }

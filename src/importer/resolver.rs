@@ -185,11 +185,7 @@ impl From<CommandDescription> for ExtendedCommandDescription {
     let mut extend = "".to_string();
     if !is_shell_task(&value) {
       let args = split_command(value.command.as_str());
-      let mut args: Vec<String> = args.iter().map(|s| (*s).to_string()).collect();
-
-      let (_params, argv) = crate::utils::argv::parse(args.iter());
-      let vars = crate::utils::argv::extract_vars(&argv);
-
+      let (params, vars) = crate::utils::argv::extract_vars(args.into_iter());
       match value.variables.take() {
         Some(mut v) => {
           v.extend(s_to_p(vars));
@@ -200,14 +196,17 @@ impl From<CommandDescription> for ExtendedCommandDescription {
         }
       }
 
-      extend = args.remove(0);
-      match value.args.take() {
-        Some(mut a) => {
-          a.extend(args);
-          value.args = Some(a);
-        }
-        None => {
-          value.args = Some(args);
+      let params: Vec<String> = params.iter().map(|s| s.to_string()).collect();
+      if !params.is_empty() {
+        extend = params[0].to_string();
+        match value.args.take() {
+          Some(mut a) => {
+            a.extend(params);
+            value.args = Some(a);
+          }
+          None => {
+            value.args = Some(params);
+          }
         }
       }
     }
@@ -415,10 +414,13 @@ fn p_to_s(map: Dictionary<Primitive>) -> Dictionary<String> {
   return h;
 }
 
-fn s_to_p(map: Dictionary<String>) -> Dictionary<Primitive> {
+fn s_to_p<S>(map: HashMap<S, S>) -> Dictionary<Primitive>
+where
+  S: Into<String>,
+{
   let mut h: Dictionary<Primitive> = HashMap::new();
   for item in map {
-    h.insert(item.0, item.1.into());
+    h.insert(item.0.into(), item.1.into().into());
   }
   return h;
 }
