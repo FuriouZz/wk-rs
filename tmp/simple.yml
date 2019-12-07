@@ -1,27 +1,30 @@
 extends:
   - ./simple2.yml
 environments:
-  Greeting: Welcome to
+  Greeting: Hello
 variables:
-  buddy: WK
-  number: 3
+  buddy: World
+  version: 0
 commands:
-  hello:
-    command: echo %Greeting% ${buddy} ${number}!
-  john:
-    extend: hello
-    variables:
-      buddy: John
-      number: 0
-    environments:
-      Greeting: Hello
-    depends:
-      - hello
   echo:
     command: echo
-  how:
-    command: wk:echo How are you?
+    variables:
+      sign: "!"
+  hello: wk:echo %Greeting% ${buddy}
+  welcome:
+    command: wk:hello ${version}${sign}
+    variables:
+      buddy: WK
+      version: 3
+    environments:
+      Greeting: Welcome to
     depends:
-      - john
       - hello
-      - how # Ho ho self dependent
+  how:
+    command: wk:echo you${sign} --var.sign=?
+    args:
+      - How
+      - are
+    depends:
+      - welcome
+      - hello

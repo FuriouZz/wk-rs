@@ -2,25 +2,26 @@ use std::{
   collections::HashMap
 };
 
-pub fn parse<I, J>(args: I) -> HashMap<String, String>
+pub fn parse<I, J>(args: I) -> (Vec<String>, HashMap<String, String>)
 where
   J: Into<String>,
   I: Iterator<Item=J>,
 {
   let matches = vec!(("-", 1), ("--", 2));
 
-  let mut parameters: HashMap<String, String> = HashMap::new();
+  let mut params: Vec<String> = Vec::new();
+  let mut vars: HashMap<String, String> = HashMap::new();
 
   let mut tmp_key: Option<String> = None;
 
-  for (index, arg) in args.enumerate() {
+  for arg in args {
     let arg: String = arg.into();
 
     let (mtch0, len0) = matches[0];
 
     if arg.len() >= len0 + 1 && &arg[..len0] == mtch0 {
       if let Some(key) = tmp_key.take() {
-        parameters.insert(key, "true".to_string());
+        vars.insert(key, "true".to_string());
       }
 
       let mut key: &str = &arg[len0..];
@@ -34,7 +35,7 @@ where
 
       if s.len() >= 2 {
         key = s.remove(0);
-        parameters.insert(key.to_string(), s.join("="));
+        vars.insert(key.to_string(), s.join("="));
       } else {
         tmp_key = Some(s[0].into());
       }
@@ -43,17 +44,17 @@ where
     }
 
     if let Some(key) = tmp_key.take() {
-      parameters.insert(key, arg);
+      vars.insert(key, arg);
     } else {
-      parameters.insert(index.to_string(), arg);
+      params.push(arg);
     }
   }
 
   if let Some(key) = tmp_key.take() {
-    parameters.insert(key, "true".to_string());
+    vars.insert(key, "true".to_string());
   }
 
-  parameters
+  (params, vars)
 }
 
 pub fn extract_vars(map: &HashMap<String, String>) -> HashMap<String, String> {

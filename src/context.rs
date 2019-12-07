@@ -1,5 +1,5 @@
 use crate::{
-  command::{Command, CommandBuilder, CommandKind, CommandResult},
+  command::{Command, CommandBuilder, CommandResult},
   error::Error,
   importer::CommandImported,
 };
@@ -8,6 +8,7 @@ use std::collections::HashMap;
 #[derive(Debug)]
 pub struct Context {
   pub(crate) tasks: HashMap<String, CommandImported>,
+  pub(crate) debug: i32
 }
 
 impl Context {
@@ -42,7 +43,7 @@ impl Context {
   where
     S: AsRef<str>,
   {
-    if let Some(mut command) = self.create_command(name.as_ref(), variables) {
+    if let Some(command) = self.create_command(name.as_ref(), variables) {
 
       // Add dependencies
       if !command.dependencies.is_empty() {
@@ -54,24 +55,6 @@ impl Context {
               }
             }
             None => {}
-          }
-        }
-      }
-
-      let builder = self.find_builder(&name).expect("No command builder found.");
-
-      // Merge WK task with the shell task
-      if let CommandKind::WK = builder.kind {
-        let name: &String = &command.args[0];
-        self.create_stack(name, order, tasks, variables);
-        if let Some(last) = order.last() {
-          if last == name {
-            order.pop();
-            let mut p = tasks.remove(name).unwrap();
-            p.cwd = command.cwd;
-            p.shell = command.shell;
-            p.args.extend(command.args[1..].to_vec());
-            command = p;
           }
         }
       }
@@ -103,15 +86,26 @@ impl Context {
     let mut results: Vec<CommandResult> = Vec::new();
     for name in order.iter() {
       if let Some(c) = commands.remove(name) {
-        results.push(c.execute().await);
+        match self.debug {
+          2 => {
+            c.display();
+          },
+          1 => {
+            c.debug();
+            results.push(c.execute().await)
+          },
+          _ => {
+            results.push(c.execute().await)
+          }
+        }
       }
     }
 
     Ok(results)
   }
 
-  pub fn extend(&mut self, context: &Context) {
-    for task in context.tasks.clone() {
+  pub fn extend(&mut self, context: Context) {
+    for task in context.tasks {
       self.tasks.insert(task.0, task.1);
     }
   }

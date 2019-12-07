@@ -20,10 +20,10 @@ mod tests {
       .join("simple.yml")
       .normalize();
 
-    if let Ok(context) = crate::importer::load(&path) {
-      context.run("how", None).await?;
-      // context.run("ls", None).await;
-    }
+    let context = crate::importer::load(&path)?;
+    // println!("{:?}", context);
+    context.run("how", None).await?;
+    // context.run("ls", None).await;
 
     Ok(())
   }
@@ -32,7 +32,7 @@ mod tests {
   fn parse_arguments() -> Result<(), crate::error::Error> {
     // let args = std::env::args();
     let args = vec!("wk:hello", "--var.buddy=\"john\"", "--var.greeting", "hello", "--var.debug", "-d", "--var", "-var", "--var.=", "--v=toto=plouf");
-    let argv = crate::utils::argv::parse(args.into_iter());
+    let (_params, argv) = crate::utils::argv::parse(args.into_iter());
     println!("{:?}", argv);
     let vars = crate::utils::argv::extract_vars(&argv);
     println!("{:?}", vars);

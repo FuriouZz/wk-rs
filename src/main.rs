@@ -30,7 +30,7 @@ async fn run() -> Result<(), Error> {
   })
   .collect();
 
-  let argv = argv::parse(args.iter());
+  let (_params, argv) = argv::parse(args.iter());
   let vars = argv::extract_vars(&argv);
 
   if let Some(task) = argv.get("0") {

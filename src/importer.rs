@@ -1,5 +1,8 @@
 use crate::{
-  command::CommandBuilder, concurrent::Concurrent, context::Context, error::Error,
+  command::CommandBuilder,
+  concurrent::Concurrent,
+  context::Context,
+  error::Error,
   utils::fs::Reader,
 };
 use serde::Deserialize;
@@ -7,7 +10,7 @@ use serde_yaml;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-const FILES: [&'static str; 2] = ["commands.yml", "Commands.yml"];
+const FILES: [&'static str; 3] = ["commands.yml", "Commands.yml", "wk.yml"];
 
 #[derive(Deserialize, Debug)]
 struct CommandsFile {
@@ -83,6 +86,16 @@ pub enum CommandImported {
   Concurrent(Concurrent),
 }
 
+struct Importer {
+  source: PathBuf,
+  tasks: HashMap<String, CommandImported>,
+  extended_tasks: Vec<(String, ExtendedCommandDescription)>,
+  extends: Option<Vec<PathBuf>>,
+  commands: Option<HashMap<String, CommandFileDescription>>,
+  variables: HashMap<String, Primitive>,
+  environments: HashMap<String, Primitive>,
+}
+
 impl From<CommandDescription> for CommandBuilder {
   fn from(value: CommandDescription) -> Self {
     let mut task = CommandBuilder::new();
@@ -101,10 +114,10 @@ impl From<CommandDescription> for CommandBuilder {
       task.with_dependencies(dependencies);
     }
     if let Some(variables) = value.variables {
-      task.with_variables(ptos(variables));
+      task.with_variables(Importer::p_to_s(variables));
     }
     if let Some(environments) = value.environments {
-      task.with_environments(ptos(environments));
+      task.with_environments(Importer::p_to_s(environments));
     }
     if let Some(description) = value.description {
       task.with_description(description);
@@ -129,10 +142,10 @@ impl From<ConcurrentDescription> for Concurrent {
       concurrent.with_description(description);
     }
     if let Some(variables) = value.variables {
-      concurrent.with_variables(ptos(variables));
+      concurrent.with_variables(Importer::p_to_s(variables));
     }
     if let Some(environments) = value.environments {
-      concurrent.with_environments(ptos(environments));
+      concurrent.with_environments(Importer::p_to_s(environments));
     }
 
     return concurrent;
@@ -145,7 +158,7 @@ impl From<ExtendedCommand> for CommandBuilder {
     task.with_cwd(value.desc.cwd);
 
     if let Some(args) = value.desc.args {
-      task.override_args(args);
+      task.with_args(args);
     }
     if let Some(shell) = value.desc.shell {
       task.with_shell(shell);
@@ -157,16 +170,62 @@ impl From<ExtendedCommand> for CommandBuilder {
       task.with_dependencies(dependencies);
     }
     if let Some(variables) = value.desc.variables {
-      task.with_variables(ptos(variables));
+      task.with_variables(Importer::p_to_s(variables));
     }
     if let Some(environments) = value.desc.environments {
-      task.with_environments(ptos(environments));
+      task.with_environments(Importer::p_to_s(environments));
     }
     if let Some(description) = value.desc.description {
       task.with_description(description);
     }
 
     return task;
+  }
+}
+
+impl From<CommandDescription> for ExtendedCommandDescription {
+  fn from(mut value: CommandDescription) -> Self {
+    let mut extend = "".to_string();
+    if !Importer::is_shell_task(&value) {
+      let args = Importer::split_command(value.command.as_str());
+      let mut args: Vec<String> = args.iter().map(|s| (*s).to_string()).collect();
+
+      let (_params, argv) = crate::utils::argv::parse(args.iter());
+      let vars = crate::utils::argv::extract_vars(&argv);
+
+      match value.variables.take() {
+        Some(mut v) => {
+          v.extend(Importer::s_to_p(vars));
+          value.variables = Some(v);
+        },
+        None => {
+          value.variables = Some(Importer::s_to_p(vars));
+        }
+      }
+
+      extend = args.remove(0);
+      match value.args.take() {
+        Some(mut a) => {
+          a.extend(args);
+          value.args = Some(a);
+        },
+        None => {
+          value.args = Some(args);
+        }
+      }
+    }
+
+    ExtendedCommandDescription {
+      extend,
+      args: value.args,
+      cwd: value.cwd,
+      shell: value.shell,
+      hidden: value.hidden,
+      depends: value.depends,
+      variables: value.variables,
+      environments: value.environments,
+      description: value.description,
+    }
   }
 }
 
@@ -181,131 +240,248 @@ impl From<Primitive> for String {
   }
 }
 
-fn ptos(map: HashMap<String, Primitive>) -> HashMap<String, String> {
-  let mut h: HashMap<String, String> = HashMap::new();
-  for item in map {
-    h.insert(item.0, item.1.into());
+impl From<String> for Primitive {
+  fn from(value: String) -> Self {
+    Primitive::S(value)
   }
-  return h;
 }
 
-pub fn load<P>(path: P) -> Result<Context, Error>
+impl std::str::FromStr for CommandDescription {
+  type Err = Error;
+
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    let args: Vec<&str> = s.split_whitespace().collect();
+    let mut args: Vec<String> = args.iter().map(|s| (*s).into()).collect();
+
+    if args.len() == 0 {
+      return Err(Error::CommandError("Cannot convert an empty string to command description".to_string()));
+    }
+
+    let command = args.remove(0);
+    Ok(CommandDescription {
+      command,
+      args: Some(args),
+      cwd: None,
+      shell: None,
+      hidden: None,
+      depends: None,
+      variables: None,
+      environments: None,
+      description: None,
+    })
+  }
+}
+
+impl Importer {
+
+  fn p_to_s(map: HashMap<String, Primitive>) -> HashMap<String, String> {
+    let mut h: HashMap<String, String> = HashMap::new();
+    for item in map {
+      h.insert(item.0, item.1.into());
+    }
+    return h;
+  }
+
+  fn s_to_p(map: HashMap<String, String>) -> HashMap<String, Primitive> {
+    let mut h: HashMap<String, Primitive> = HashMap::new();
+    for item in map {
+      h.insert(item.0, item.1.into());
+    }
+    return h;
+  }
+
+  fn is_shell_task(cmd: &CommandDescription) -> bool {
+    let c: &str = cmd.command.as_str();
+    if c.len() >= 4 && &c[0..3] == "wk:" {
+      return false;
+    }
+
+    return true;
+  }
+
+  fn split_command(cmd: &str) -> Vec<&str> {
+    let split: Vec<&str> = cmd.split_whitespace().collect();
+    let mut args: Vec<&str> = Vec::new();
+
+    let mut iterator = split.into_iter().enumerate();
+    while let Some((index, arg)) = iterator.next() {
+      if index == 0 {
+        if arg.len() >= 4 && &arg[0..3] == "wk:" {
+          let c = &arg[3..];
+          args.push(c.into());
+          continue;
+        }
+      }
+      args.push(arg.into());
+    }
+
+    return args;
+  }
+
+  fn add_task(&mut self, name: String, cmd: CommandDescription) {
+    if !Importer::is_shell_task(&cmd) {
+      let extd_desc: ExtendedCommandDescription = cmd.into();
+      self.add_extend(name, extd_desc);
+    } else {
+      self._add_task(name, cmd);
+    }
+  }
+
+  fn _add_task<I>(&mut self, name: String, task_desc: I)
+  where
+    I: Into<CommandBuilder>,
+  {
+    let mut task = task_desc.into();
+    let vars = task.variables.clone();
+    let envs = task.environments.clone();
+    task
+      .with_name(name.clone())
+      .with_source(&self.source)
+      .with_variables(Importer::p_to_s(self.variables.clone())) // Apply file variables
+      .with_variables(vars) // Override variables with task
+      .with_environments(Importer::p_to_s(self.environments.clone())) // Apply file environments
+      .with_environments(envs); // Override environments with task
+    self
+      .tasks
+      .insert(name, CommandImported::Command(task));
+  }
+
+  pub fn add_concurrent(&mut self, name: String, mut conc: Concurrent) {
+    let vars = conc.variables.clone();
+    let envs = conc.environments.clone();
+    conc
+      .with_name(name.clone())
+      .with_source(&self.source)
+      .with_variables(Importer::p_to_s(self.variables.clone())) // Apply file variables
+      .with_variables(vars) // Override variables with task
+      .with_environments(Importer::p_to_s(self.environments.clone())) // Apply file environments
+      .with_environments(envs); // Override environments with task
+    self
+      .tasks
+      .insert(name, CommandImported::Concurrent(conc));
+  }
+
+  pub fn add_extend(&mut self, name: String, desc: ExtendedCommandDescription) {
+    self.extended_tasks.push((name, desc));
+  }
+
+  pub fn resolve_commands(&mut self) -> Result<(), Error>{
+    let mut commands = self.commands.take().unwrap().into_iter();
+    while let Some((key, value)) = commands.next() {
+      match value {
+        CommandFileDescription::StringCommand(command) => {
+          let task_desc = command.as_str().parse::<CommandDescription>()?;
+          self.add_task(key, task_desc);
+        },
+        CommandFileDescription::Command(task_desc) => {
+          self.add_task(key, task_desc);
+        },
+        CommandFileDescription::Concurrent(conc_desc) => {
+          let conc: Concurrent = conc_desc.into();
+          self.add_concurrent(key, conc);
+        },
+        CommandFileDescription::ExtendedCommand(extd_desc) => {
+          self.add_extend(key, extd_desc);
+        },
+      }
+    }
+
+    self.resolve_extends()?;
+
+    Ok(())
+  }
+
+  fn resolve_extends(&mut self) -> Result<(), Error> {
+    let mut pending: Vec<String> = Vec::new();
+    while let Some(extd) = self.extended_tasks.pop() {
+      let name = extd.0;
+      let desc = extd.1;
+
+      if let Some(cmd) = self.tasks.get(desc.extend.as_str()) {
+        if let CommandImported::Command(task) = cmd {
+          let extend = ExtendedCommand {
+            extend: (*task).clone(),
+            desc,
+          };
+
+          let mut task: CommandBuilder = extend.into();
+          task.with_name(name.clone());
+          self
+            .tasks
+            .insert(name.clone(), CommandImported::Command(task));
+        } else {
+          return Err(Error::ImportError(format!(
+            "Cannot extend {}",
+            desc.extend.clone()
+          )));
+        }
+      } else if !pending.contains(&name) {
+        pending.push(name.clone());
+        self.extended_tasks.insert(0, (name, desc));
+      } else {
+        return Err(Error::ImportError(format!(
+          "{} cannot extend {}. It does not exist.",
+          name,
+          desc.extend.clone()
+        )));
+      }
+    }
+
+    Ok(())
+  }
+
+  pub fn to_context(mut self) -> Result<Context, Error> {
+    let mut tasks: HashMap<String, CommandImported> = HashMap::new();
+    for (key, value) in self.tasks {
+      tasks.insert(key.to_owned(), value);
+    }
+
+    let mut context = Context { tasks, debug: 0 };
+
+    if let Some(extends) = self.extends.take() {
+      for f in extends {
+        let relative_path = self.source.parent().expect("Source has no parent");
+        let ff = relative_path.join(f);
+        let fpath = ff.as_path();
+
+        if fpath != self.source {
+          {
+            let c = load(fpath)?;
+            context.extend(c);
+          }
+        } else {
+          return Err(Error::ImportError(
+            format!("Cannot extend {:?}", fpath).to_string(),
+          ));
+        }
+      }
+    }
+
+    Ok(context)
+  }
+}
+
+pub fn load<'a, P>(path: P) -> Result<Context, Error>
 where
   P: AsRef<Path> + Copy,
 {
   let content = Reader::text(path)?;
   let file: CommandsFile = serde_yaml::from_str(content.as_str())?;
 
-  let mut source = PathBuf::new();
-  source.push(&path);
-
-  let mut tasks: HashMap<String, CommandImported> = HashMap::new();
-  let mut extends: Vec<(String, ExtendedCommandDescription)> = Vec::new();
-
-  // Variables
-  let variables = file.variables.unwrap_or(HashMap::new());
-
-  // Environments
-  let environments = file.environments.unwrap_or(HashMap::new());
-
-  // Create tasks
-  let mut commands = file.commands.into_iter();
-  while let Some((key, value)) = commands.next() {
-    let name: String = key;
-    let command: CommandFileDescription = value;
-
-    match command {
-      CommandFileDescription::StringCommand(command) => {
-        let mut task: CommandBuilder = command.as_str().parse::<CommandBuilder>()?;
-        let vars = task.variables.clone();
-        let envs = task.environments.clone();
-        task
-          .with_name(name.clone())
-          .with_source(source.clone())
-          .with_variables(ptos(variables.clone())) // Apply file variables
-          .with_variables(vars) // Override variables with task
-          .with_environments(ptos(environments.clone())) // Apply file environments
-          .with_environments(envs); // Override environments with task
-        tasks.insert(name.clone(), CommandImported::Command(task));
-      }
-      CommandFileDescription::Command(task_desc) => {
-        let mut task: CommandBuilder = task_desc.into();
-        let vars = task.variables.clone();
-        let envs = task.environments.clone();
-        task
-          .with_name(name.clone())
-          .with_source(source.clone())
-          .with_variables(ptos(variables.clone())) // Apply file variables
-          .with_variables(vars) // Override variables with task
-          .with_environments(ptos(environments.clone())) // Apply file environments
-          .with_environments(envs); // Override environments with task
-        tasks.insert(name.clone(), CommandImported::Command(task));
-      }
-      CommandFileDescription::Concurrent(conc_desc) => {
-        let mut conc: Concurrent = conc_desc.into();
-        let vars = conc.variables.clone();
-        let envs = conc.environments.clone();
-        conc
-          .with_name(name.clone())
-          .with_source(source.clone())
-          .with_variables(ptos(variables.clone())) // Apply file variables
-          .with_variables(vars) // Override variables with task
-          .with_environments(ptos(environments.clone())) // Apply file environments
-          .with_environments(envs); // Override environments with task
-        tasks.insert(name.clone(), CommandImported::Concurrent(conc));
-      }
-      CommandFileDescription::ExtendedCommand(extd_desc) => {
-        extends.push((name, extd_desc));
-      }
-    }
-  }
+  let source = PathBuf::new().join(&path);
+  let mut importer = Importer {
+    source,
+    tasks: HashMap::new(),
+    extended_tasks: Vec::new(),
+    extends: file.extends,
+    commands: Some(file.commands),
+    variables: file.variables.unwrap_or(HashMap::new()),
+    environments: file.environments.unwrap_or(HashMap::new()),
+  };
 
   // Create extended task
-  for extd in extends {
-    let name = extd.0;
-    let command = extd.1;
-
-    if let Some(cmd) = tasks.get(&command.extend) {
-      if let CommandImported::Command(task) = cmd {
-        let extend = ExtendedCommand {
-          extend: (*task).clone(),
-          desc: command,
-        };
-
-        let mut task: CommandBuilder = extend.into();
-        task.with_name(name.clone());
-        tasks.insert(name.clone(), CommandImported::Command(task));
-      } else {
-        return Err(Error::ImportError(format!(
-          "Cannot extend {}",
-          command.extend.clone()
-        )));
-      }
-    } else {
-      return Err(Error::ImportError(format!(
-        "Cannot extend {}",
-        command.extend.clone()
-      )));
-    }
-  }
-
-  // Return context
-  let mut context = Context { tasks };
-
-  if let Some(context_extends) = file.extends {
-    for f in context_extends {
-      let relative_path = source.parent().expect("Source has no parent");
-      let ff = relative_path.join(f);
-      let fpath = ff.as_path();
-
-      if fpath != source.as_path() {
-        let c = load(fpath)?;
-        context.extend(&c);
-      } else {
-        return Err(Error::ImportError(format!("Cannot extend {:?}", fpath).to_string()));
-      }
-    }
-  }
+  importer.resolve_commands()?;
+  let context = importer.to_context()?;
 
   Ok(context)
 }
@@ -358,7 +534,7 @@ where
   Err(Error::ImportError("No commands found.".to_string()))
 }
 
-pub fn lookup_and_load<P>(dir_path: P) -> Result<Context, Error>
+pub fn lookup_and_load<'a, P>(dir_path: P) -> Result<Context, Error>
 where
   P: AsRef<Path>,
 {

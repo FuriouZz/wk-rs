@@ -11,17 +11,10 @@ use std::{
 pub type CommandResult = Result<Option<i32>, Error>;
 
 #[derive(Debug, Clone)]
-pub enum CommandKind {
-  WK,
-  Shell,
-}
-
-#[derive(Debug, Clone)]
 pub struct CommandBuilder {
   cwd: Option<std::path::PathBuf>,
   args: Vec<String>,
   name: String,
-  pub(crate) kind: CommandKind,
   shell: Option<std::path::PathBuf>,
   hidden: bool,
   source: std::path::PathBuf,
@@ -37,7 +30,6 @@ impl CommandBuilder {
       cwd: None,
       args: Vec::new(),
       name: String::from("command"),
-      kind: CommandKind::Shell,
       shell: None,
       hidden: false,
       source: std::path::PathBuf::new(),
@@ -64,21 +56,7 @@ impl CommandBuilder {
     let parameters: Vec<&str> = cmd.split_whitespace().collect();
 
     self.args.clear();
-
-    let mut iterator = parameters.into_iter().enumerate();
-    while let Some((index, param)) = iterator.next() {
-      if index == 0 {
-        if param.len() >= 4 && &param[0..3] == "wk:" {
-          self.kind = CommandKind::WK;
-          let c = &param[3..];
-          self.args.push(c.into());
-          continue;
-        }
-
-        self.kind = CommandKind::Shell;
-      }
-      self.args.push(param.into());
-    }
+    self.args.extend(parameters.iter().map(|s| (*s).into()).collect::<Vec<String>>());
 
     self
   }
@@ -238,6 +216,7 @@ impl CommandBuilder {
     let environments = self.environments.clone();
 
     Command {
+      name: self.name.clone(),
       cwd,
       args,
       shell,
@@ -263,6 +242,7 @@ impl std::str::FromStr for CommandBuilder {
 
 #[derive(Debug)]
 pub struct Command {
+  pub name: String,
   pub cwd: Option<std::path::PathBuf>,
   pub args: Vec<String>,
   pub shell: std::path::PathBuf,
@@ -273,6 +253,41 @@ pub struct Command {
 impl Command {
   pub fn execute(self) -> CommandFuture {
     CommandFuture::new(&self)
+  }
+
+  pub fn debug(&self) {
+    if let Some(cwd) = &self.cwd {
+      print!("\nFrom: {} ", cwd.to_string_lossy());
+    }
+
+    print!("with {}\n", self.shell.to_string_lossy());
+    println!("Run {}\n", self.name);
+  }
+
+  pub fn display(&self) {
+    println!("{}", self);
+  }
+}
+
+impl std::fmt::Display for Command {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "Dependencies: ")?;
+    write!(f, "{}\n", self.dependencies.join(", "))?;
+
+    write!(f, "Environments:")?;
+    for (key, value) in &self.environments {
+      write!(f, " {}={}", key, value)?;
+    }
+    write!(f, "\n")?;
+
+    if let Some(cwd) = &self.cwd {
+      writeln!(f, "From: {}", cwd.to_string_lossy())?;
+    }
+
+    writeln!(f, "Shell: {}", self.shell.to_string_lossy())?;
+    writeln!(f, "Command: {:?}", self.args.join(" "))?;
+
+    Ok(())
   }
 }
 
