@@ -8,11 +8,7 @@ mod importer;
 mod test;
 mod utils;
 
-use crate::{
-  error::Error,
-  importer::lookup_and_load,
-  utils::argv,
-};
+use crate::{error::Error, importer::lookup_and_load, utils::argv};
 use futures::executor::block_on;
 
 async fn run() -> Result<(), Error> {
@@ -20,15 +16,9 @@ async fn run() -> Result<(), Error> {
   let context = lookup_and_load(dir_path.as_path())?;
 
   let args: Vec<String> = std::env::args()
-  .enumerate()
-  .filter_map(|a| {
-    if a.0 != 0 {
-      Some(a.1)
-    } else {
-      None
-    }
-  })
-  .collect();
+    .enumerate()
+    .filter_map(|a| if a.0 != 0 { Some(a.1) } else { None })
+    .collect();
 
   let (_params, argv) = argv::parse(args.iter());
   let vars = argv::extract_vars(&argv);

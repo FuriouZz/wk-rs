@@ -4,7 +4,7 @@ mod tests {
   fn lookup() {
     let mut dir_path = std::env::current_dir().unwrap();
     dir_path.push("tmp");
-    let res = crate::importer::lookup_dir(dir_path);
+    let res = crate::importer::lookup::dir(dir_path);
     println!("{:?}", res);
   }
 
@@ -31,7 +31,18 @@ mod tests {
   #[test]
   fn parse_arguments() -> Result<(), crate::error::Error> {
     // let args = std::env::args();
-    let args = vec!("wk:hello", "--var.buddy=\"john\"", "--var.greeting", "hello", "--var.debug", "-d", "--var", "-var", "--var.=", "--v=toto=plouf");
+    let args = vec![
+      "wk:hello",
+      "--var.buddy=\"john\"",
+      "--var.greeting",
+      "hello",
+      "--var.debug",
+      "-d",
+      "--var",
+      "-var",
+      "--var.=",
+      "--v=toto=plouf",
+    ];
     let (_params, argv) = crate::utils::argv::parse(args.into_iter());
     println!("{:?}", argv);
     let vars = crate::utils::argv::extract_vars(&argv);

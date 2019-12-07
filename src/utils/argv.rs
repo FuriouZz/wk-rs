@@ -1,13 +1,11 @@
-use std::{
-  collections::HashMap
-};
+use std::collections::HashMap;
 
 pub fn parse<I, J>(args: I) -> (Vec<String>, HashMap<String, String>)
 where
   J: Into<String>,
-  I: Iterator<Item=J>,
+  I: Iterator<Item = J>,
 {
-  let matches = vec!(("-", 1), ("--", 2));
+  let matches = vec![("-", 1), ("--", 2)];
 
   let mut params: Vec<String> = Vec::new();
   let mut vars: HashMap<String, String> = HashMap::new();

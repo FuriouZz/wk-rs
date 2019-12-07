@@ -1,5 +1,5 @@
 use crate::{
-  command::CommandBuilder, concurrent::Concurrent, context::Context, error::Error,
+  command::CommandBuilder, concurrent::ConcurrentBuilder, context::Context, error::Error,
   utils::fs::Reader,
 };
 use serde::Deserialize;
@@ -7,7 +7,6 @@ use serde_yaml;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-const FILES: [&'static str; 3] = ["commands.yml", "Commands.yml", "wk.yml"];
 type Dictionary<T> = HashMap<String, T>;
 
 #[derive(Deserialize, Debug)]
@@ -81,10 +80,10 @@ enum Primitive {
 #[derive(Debug, Clone)]
 pub enum CommandImported {
   Command(CommandBuilder),
-  Concurrent(Concurrent),
+  Concurrent(ConcurrentBuilder),
 }
 
-struct Importer {
+pub(crate) struct Resolver {
   source: PathBuf,
   tasks: Dictionary<CommandImported>,
   extended_tasks: Vec<(String, ExtendedCommandDescription)>,
@@ -125,9 +124,9 @@ impl From<CommandDescription> for CommandBuilder {
   }
 }
 
-impl From<ConcurrentDescription> for Concurrent {
+impl From<ConcurrentDescription> for ConcurrentBuilder {
   fn from(value: ConcurrentDescription) -> Self {
-    let mut concurrent = Concurrent::new();
+    let mut concurrent = ConcurrentBuilder::new();
     concurrent.with_commands(value.commands);
 
     if let Some(hidden) = value.hidden {
@@ -272,7 +271,7 @@ impl std::str::FromStr for CommandDescription {
   }
 }
 
-impl Importer {
+impl Resolver {
   pub fn resolve(mut self) -> Result<Context, Error> {
     let mut commands = self.commands.take().unwrap().into_iter();
     while let Some((key, value)) = commands.next() {
@@ -285,7 +284,7 @@ impl Importer {
           self.add_task(key, task_desc);
         }
         CommandFileDescription::Concurrent(conc_desc) => {
-          let conc: Concurrent = conc_desc.into();
+          let conc: ConcurrentBuilder = conc_desc.into();
           self.add_concurrent(key, conc);
         }
         CommandFileDescription::ExtendedCommand(extd_desc) => {
@@ -324,7 +323,7 @@ impl Importer {
     self.tasks.insert(name, CommandImported::Command(task));
   }
 
-  fn add_concurrent(&mut self, name: String, mut conc: Concurrent) {
+  fn add_concurrent(&mut self, name: String, mut conc: ConcurrentBuilder) {
     let vars = conc.variables.clone();
     let envs = conc.environments.clone();
     conc
@@ -460,7 +459,7 @@ where
   let file: CommandsFile = serde_yaml::from_str(content.as_str())?;
 
   let source = PathBuf::new().join(&path);
-  let importer = Importer {
+  let importer = Resolver {
     source,
     tasks: HashMap::new(),
     extended_tasks: Vec::new(),
@@ -472,60 +471,4 @@ where
 
   let c = importer.resolve()?;
   Ok(c)
-}
-
-pub fn lookup_dir<P>(dir_path: P) -> Result<PathBuf, Error>
-where
-  P: AsRef<Path>,
-{
-  lookup(dir_path, None)
-}
-
-pub fn lookup<P>(dir_path: P, patterns: Option<Vec<&str>>) -> Result<PathBuf, Error>
-where
-  P: AsRef<Path>,
-{
-  let patterns = patterns.unwrap_or(FILES.to_vec());
-
-  let dir_path = dir_path.as_ref();
-  let mut dir_pathbuf = PathBuf::new().join(dir_path);
-
-  if !dir_pathbuf.is_absolute() {
-    if let Ok(cwd) = std::env::current_dir() {
-      dir_pathbuf = PathBuf::new().join(cwd).join(dir_pathbuf);
-    }
-  }
-
-  if !dir_pathbuf.is_dir() {
-    let d = dir_pathbuf.display();
-    return Err(Error::ImportError(format!("\"{}\" is not a directory", d)));
-  }
-
-  let dir_path = dir_pathbuf.as_path();
-  let readdir = std::fs::read_dir(dir_path)?;
-
-  let items: Vec<PathBuf> = patterns
-    .iter()
-    .map(|pattern| PathBuf::new().join(&dir_path).join(&pattern))
-    .collect();
-
-  let mut it = readdir.into_iter();
-  while let Some(item) = it.next() {
-    if let Ok(entry) = item {
-      let entry_path = entry.path();
-      if items.contains(&entry_path) {
-        return Ok(entry_path);
-      }
-    }
-  }
-
-  Err(Error::ImportError("No commands found.".to_string()))
-}
-
-pub fn lookup_and_load<'a, P>(dir_path: P) -> Result<Context, Error>
-where
-  P: AsRef<Path>,
-{
-  let path = lookup_dir(dir_path)?;
-  load(path.as_path())
 }

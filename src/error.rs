@@ -1,8 +1,4 @@
-use std::{
-  io,
-  fmt,
-  str::Utf8Error,
-};
+use std::{fmt, io, str::Utf8Error};
 
 #[derive(Debug)]
 pub enum Error {

@@ -1,14 +1,6 @@
+use super::command::Command;
 use crate::error::Error;
-use std::{
-  collections::HashMap,
-  env,
-  future::Future,
-  pin::Pin,
-  process::Child,
-  task::{Context, Poll},
-};
-
-pub type CommandResult = Result<Option<i32>, Error>;
+use std::{collections::HashMap, env};
 
 #[derive(Debug, Clone)]
 pub struct CommandBuilder {
@@ -56,7 +48,12 @@ impl CommandBuilder {
     let parameters: Vec<&str> = cmd.split_whitespace().collect();
 
     self.args.clear();
-    self.args.extend(parameters.iter().map(|s| (*s).into()).collect::<Vec<String>>());
+    self.args.extend(
+      parameters
+        .iter()
+        .map(|s| (*s).into())
+        .collect::<Vec<String>>(),
+    );
 
     self
   }
@@ -231,123 +228,13 @@ impl std::str::FromStr for CommandBuilder {
 
   fn from_str(s: &str) -> Result<Self, Self::Err> {
     if s.is_empty() {
-      return Err(Error::CommandError("Cannot convert an empty string to command".to_string()));
+      return Err(Error::CommandError(
+        "Cannot convert an empty string to command".to_string(),
+      ));
     }
 
     let mut command = CommandBuilder::new();
     command.with_command(s);
     Ok(command)
-  }
-}
-
-#[derive(Debug)]
-pub struct Command {
-  pub name: String,
-  pub cwd: Option<std::path::PathBuf>,
-  pub args: Vec<String>,
-  pub shell: std::path::PathBuf,
-  pub dependencies: Vec<String>,
-  pub environments: HashMap<String, String>,
-}
-
-impl Command {
-  pub fn execute(self) -> CommandFuture {
-    CommandFuture::new(&self)
-  }
-
-  pub fn debug(&self) {
-    if let Some(cwd) = &self.cwd {
-      print!("\nFrom: {} ", cwd.to_string_lossy());
-    }
-
-    print!("with {}\n", self.shell.to_string_lossy());
-    println!("Run {}\n", self.name);
-  }
-
-  pub fn display(&self) {
-    println!("{}", self);
-  }
-}
-
-impl std::fmt::Display for Command {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "Dependencies: ")?;
-    write!(f, "{}\n", self.dependencies.join(", "))?;
-
-    write!(f, "Environments:")?;
-    for (key, value) in &self.environments {
-      write!(f, " {}={}", key, value)?;
-    }
-    write!(f, "\n")?;
-
-    if let Some(cwd) = &self.cwd {
-      writeln!(f, "From: {}", cwd.to_string_lossy())?;
-    }
-
-    writeln!(f, "Shell: {}", self.shell.to_string_lossy())?;
-    writeln!(f, "Command: {:?}", self.args.join(" "))?;
-
-    Ok(())
-  }
-}
-
-pub struct CommandFuture {
-  process: Option<Result<Child, std::io::Error>>,
-}
-
-impl CommandFuture {
-  pub fn new(command: &Command) -> Self {
-    let mut cmd = std::process::Command::new(&command.shell);
-
-    // Set shell caller
-    if command.shell.as_os_str() == std::ffi::OsStr::new("cmd.exe") {
-      cmd.arg("/c");
-    } else {
-      cmd.arg("-c");
-    }
-
-    // Set arguments
-    // cmd.args(&command.args[..]);
-    cmd.arg(command.args.join(" "));
-
-    // Set current directory
-    if let Some(cwd) = &command.cwd {
-      cmd.current_dir(cwd);
-    }
-
-    for env in command.environments.iter() {
-      cmd.env(env.0, env.1);
-    }
-
-    // Execute and store child process
-    let child = cmd.spawn();
-
-    Self {
-      process: Some(child),
-    }
-  }
-}
-
-impl Future for CommandFuture {
-  type Output = CommandResult;
-
-  fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-    let runner = self.get_mut();
-    let wake = || {
-      let w = cx.waker().clone();
-      w.wake();
-    };
-
-    match runner.process.take() {
-      Some(Ok(mut child)) => match child.wait() {
-        Ok(e) => Poll::Ready(Ok(e.code())),
-        Err(e) => Poll::Ready(Err(e.into())),
-      },
-      Some(Err(e)) => Poll::Ready(Err(e.into())),
-      None => {
-        wake();
-        Poll::Pending
-      }
-    }
   }
 }

@@ -8,7 +8,7 @@ use std::collections::HashMap;
 #[derive(Debug)]
 pub struct Context {
   pub(crate) tasks: HashMap<String, CommandImported>,
-  pub(crate) debug: i32
+  pub(crate) debug: i32,
 }
 
 impl Context {
@@ -28,7 +28,11 @@ impl Context {
     None
   }
 
-  pub fn create_command<S>(&self, name: S, variables: Option<&HashMap<String, String>>) -> Option<Command>
+  pub fn create_command<S>(
+    &self,
+    name: S,
+    variables: Option<&HashMap<String, String>>,
+  ) -> Option<Command>
   where
     S: AsRef<str>,
   {
@@ -39,12 +43,16 @@ impl Context {
     None
   }
 
-  pub fn create_stack<S>(&self, name: S, order: &mut Vec<String>, tasks: &mut HashMap<String, Command>, variables: Option<&HashMap<String, String>>)
-  where
+  pub fn create_stack<S>(
+    &self,
+    name: S,
+    order: &mut Vec<String>,
+    tasks: &mut HashMap<String, Command>,
+    variables: Option<&HashMap<String, String>>,
+  ) where
     S: AsRef<str>,
   {
     if let Some(command) = self.create_command(name.as_ref(), variables) {
-
       // Add dependencies
       if !command.dependencies.is_empty() {
         for depname in &command.dependencies {
@@ -65,11 +73,14 @@ impl Context {
         order.push(s.clone());
         tasks.insert(s, command);
       }
-
     }
   }
 
-  pub async fn run<S>(&self, name: S, variables: Option<&HashMap<String, String>>) -> Result<Vec<CommandResult>, Error>
+  pub async fn run<S>(
+    &self,
+    name: S,
+    variables: Option<&HashMap<String, String>>,
+  ) -> Result<Vec<CommandResult>, Error>
   where
     S: AsRef<str>,
   {
@@ -89,14 +100,12 @@ impl Context {
         match self.debug {
           2 => {
             c.display();
-          },
+          }
           1 => {
             c.debug();
             results.push(c.execute().await)
-          },
-          _ => {
-            results.push(c.execute().await)
           }
+          _ => results.push(c.execute().await),
         }
       }
     }

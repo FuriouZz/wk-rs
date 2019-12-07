@@ -1,7 +1,7 @@
 use std::{collections::HashMap, path::PathBuf};
 
 #[derive(Debug, Clone)]
-pub struct Concurrent {
+pub struct ConcurrentBuilder {
   name: String,
   source: PathBuf,
   hidden: bool,
@@ -12,7 +12,7 @@ pub struct Concurrent {
   dependencies: Vec<String>,
 }
 
-impl Concurrent {
+impl ConcurrentBuilder {
   pub fn new() -> Self {
     Self {
       name: String::from("task"),
