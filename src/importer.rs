@@ -1,8 +1,5 @@
 use crate::{
-  command::CommandBuilder,
-  concurrent::Concurrent,
-  context::Context,
-  error::Error,
+  command::CommandBuilder, concurrent::Concurrent, context::Context, error::Error,
   utils::fs::Reader,
 };
 use serde::Deserialize;
@@ -11,13 +8,14 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 const FILES: [&'static str; 3] = ["commands.yml", "Commands.yml", "wk.yml"];
+type Dictionary<T> = HashMap<String, T>;
 
 #[derive(Deserialize, Debug)]
 struct CommandsFile {
   extends: Option<Vec<PathBuf>>,
-  commands: HashMap<String, CommandFileDescription>,
-  variables: Option<HashMap<String, Primitive>>,
-  environments: Option<HashMap<String, Primitive>>,
+  commands: Dictionary<CommandFileDescription>,
+  variables: Option<Dictionary<Primitive>>,
+  environments: Option<Dictionary<Primitive>>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -37,8 +35,8 @@ struct CommandDescription {
   hidden: Option<bool>,
   command: String,
   depends: Option<Vec<String>>,
-  variables: Option<HashMap<String, Primitive>>,
-  environments: Option<HashMap<String, Primitive>>,
+  variables: Option<Dictionary<Primitive>>,
+  environments: Option<Dictionary<Primitive>>,
   description: Option<String>,
 }
 
@@ -50,9 +48,9 @@ struct ExtendedCommandDescription {
   hidden: Option<bool>,
   extend: String,
   depends: Option<Vec<String>>,
-  variables: Option<HashMap<String, Primitive>>,
+  variables: Option<Dictionary<Primitive>>,
   description: Option<String>,
-  environments: Option<HashMap<String, Primitive>>,
+  environments: Option<Dictionary<Primitive>>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -60,9 +58,9 @@ struct ConcurrentDescription {
   hidden: Option<bool>,
   depends: Option<Vec<String>>,
   commands: Vec<String>,
-  variables: Option<HashMap<String, Primitive>>,
+  variables: Option<Dictionary<Primitive>>,
   description: Option<String>,
-  environments: Option<HashMap<String, Primitive>>,
+  environments: Option<Dictionary<Primitive>>,
 }
 
 pub struct ExtendedCommand {
@@ -88,12 +86,12 @@ pub enum CommandImported {
 
 struct Importer {
   source: PathBuf,
-  tasks: HashMap<String, CommandImported>,
+  tasks: Dictionary<CommandImported>,
   extended_tasks: Vec<(String, ExtendedCommandDescription)>,
   extends: Option<Vec<PathBuf>>,
-  commands: Option<HashMap<String, CommandFileDescription>>,
-  variables: HashMap<String, Primitive>,
-  environments: HashMap<String, Primitive>,
+  commands: Option<Dictionary<CommandFileDescription>>,
+  variables: Dictionary<Primitive>,
+  environments: Dictionary<Primitive>,
 }
 
 impl From<CommandDescription> for CommandBuilder {
@@ -114,10 +112,10 @@ impl From<CommandDescription> for CommandBuilder {
       task.with_dependencies(dependencies);
     }
     if let Some(variables) = value.variables {
-      task.with_variables(Importer::p_to_s(variables));
+      task.with_variables(p_to_s(variables));
     }
     if let Some(environments) = value.environments {
-      task.with_environments(Importer::p_to_s(environments));
+      task.with_environments(p_to_s(environments));
     }
     if let Some(description) = value.description {
       task.with_description(description);
@@ -142,10 +140,10 @@ impl From<ConcurrentDescription> for Concurrent {
       concurrent.with_description(description);
     }
     if let Some(variables) = value.variables {
-      concurrent.with_variables(Importer::p_to_s(variables));
+      concurrent.with_variables(p_to_s(variables));
     }
     if let Some(environments) = value.environments {
-      concurrent.with_environments(Importer::p_to_s(environments));
+      concurrent.with_environments(p_to_s(environments));
     }
 
     return concurrent;
@@ -170,10 +168,10 @@ impl From<ExtendedCommand> for CommandBuilder {
       task.with_dependencies(dependencies);
     }
     if let Some(variables) = value.desc.variables {
-      task.with_variables(Importer::p_to_s(variables));
+      task.with_variables(p_to_s(variables));
     }
     if let Some(environments) = value.desc.environments {
-      task.with_environments(Importer::p_to_s(environments));
+      task.with_environments(p_to_s(environments));
     }
     if let Some(description) = value.desc.description {
       task.with_description(description);
@@ -186,8 +184,8 @@ impl From<ExtendedCommand> for CommandBuilder {
 impl From<CommandDescription> for ExtendedCommandDescription {
   fn from(mut value: CommandDescription) -> Self {
     let mut extend = "".to_string();
-    if !Importer::is_shell_task(&value) {
-      let args = Importer::split_command(value.command.as_str());
+    if !is_shell_task(&value) {
+      let args = split_command(value.command.as_str());
       let mut args: Vec<String> = args.iter().map(|s| (*s).to_string()).collect();
 
       let (_params, argv) = crate::utils::argv::parse(args.iter());
@@ -195,11 +193,11 @@ impl From<CommandDescription> for ExtendedCommandDescription {
 
       match value.variables.take() {
         Some(mut v) => {
-          v.extend(Importer::s_to_p(vars));
+          v.extend(s_to_p(vars));
           value.variables = Some(v);
-        },
+        }
         None => {
-          value.variables = Some(Importer::s_to_p(vars));
+          value.variables = Some(s_to_p(vars));
         }
       }
 
@@ -208,7 +206,7 @@ impl From<CommandDescription> for ExtendedCommandDescription {
         Some(mut a) => {
           a.extend(args);
           value.args = Some(a);
-        },
+        }
         None => {
           value.args = Some(args);
         }
@@ -254,7 +252,9 @@ impl std::str::FromStr for CommandDescription {
     let mut args: Vec<String> = args.iter().map(|s| (*s).into()).collect();
 
     if args.len() == 0 {
-      return Err(Error::CommandError("Cannot convert an empty string to command description".to_string()));
+      return Err(Error::CommandError(
+        "Cannot convert an empty string to command description".to_string(),
+      ));
     }
 
     let command = args.remove(0);
@@ -273,53 +273,33 @@ impl std::str::FromStr for CommandDescription {
 }
 
 impl Importer {
-
-  fn p_to_s(map: HashMap<String, Primitive>) -> HashMap<String, String> {
-    let mut h: HashMap<String, String> = HashMap::new();
-    for item in map {
-      h.insert(item.0, item.1.into());
-    }
-    return h;
-  }
-
-  fn s_to_p(map: HashMap<String, String>) -> HashMap<String, Primitive> {
-    let mut h: HashMap<String, Primitive> = HashMap::new();
-    for item in map {
-      h.insert(item.0, item.1.into());
-    }
-    return h;
-  }
-
-  fn is_shell_task(cmd: &CommandDescription) -> bool {
-    let c: &str = cmd.command.as_str();
-    if c.len() >= 4 && &c[0..3] == "wk:" {
-      return false;
-    }
-
-    return true;
-  }
-
-  fn split_command(cmd: &str) -> Vec<&str> {
-    let split: Vec<&str> = cmd.split_whitespace().collect();
-    let mut args: Vec<&str> = Vec::new();
-
-    let mut iterator = split.into_iter().enumerate();
-    while let Some((index, arg)) = iterator.next() {
-      if index == 0 {
-        if arg.len() >= 4 && &arg[0..3] == "wk:" {
-          let c = &arg[3..];
-          args.push(c.into());
-          continue;
+  pub fn resolve(mut self) -> Result<Context, Error> {
+    let mut commands = self.commands.take().unwrap().into_iter();
+    while let Some((key, value)) = commands.next() {
+      match value {
+        CommandFileDescription::StringCommand(command) => {
+          let task_desc = command.as_str().parse::<CommandDescription>()?;
+          self.add_task(key, task_desc);
+        }
+        CommandFileDescription::Command(task_desc) => {
+          self.add_task(key, task_desc);
+        }
+        CommandFileDescription::Concurrent(conc_desc) => {
+          let conc: Concurrent = conc_desc.into();
+          self.add_concurrent(key, conc);
+        }
+        CommandFileDescription::ExtendedCommand(extd_desc) => {
+          self.add_extend(key, extd_desc);
         }
       }
-      args.push(arg.into());
     }
 
-    return args;
+    self.resolve_extends()?;
+    self.to_context()
   }
 
   fn add_task(&mut self, name: String, cmd: CommandDescription) {
-    if !Importer::is_shell_task(&cmd) {
+    if !is_shell_task(&cmd) {
       let extd_desc: ExtendedCommandDescription = cmd.into();
       self.add_extend(name, extd_desc);
     } else {
@@ -337,58 +317,28 @@ impl Importer {
     task
       .with_name(name.clone())
       .with_source(&self.source)
-      .with_variables(Importer::p_to_s(self.variables.clone())) // Apply file variables
+      .with_variables(p_to_s(self.variables.clone())) // Apply file variables
       .with_variables(vars) // Override variables with task
-      .with_environments(Importer::p_to_s(self.environments.clone())) // Apply file environments
+      .with_environments(p_to_s(self.environments.clone())) // Apply file environments
       .with_environments(envs); // Override environments with task
-    self
-      .tasks
-      .insert(name, CommandImported::Command(task));
+    self.tasks.insert(name, CommandImported::Command(task));
   }
 
-  pub fn add_concurrent(&mut self, name: String, mut conc: Concurrent) {
+  fn add_concurrent(&mut self, name: String, mut conc: Concurrent) {
     let vars = conc.variables.clone();
     let envs = conc.environments.clone();
     conc
       .with_name(name.clone())
       .with_source(&self.source)
-      .with_variables(Importer::p_to_s(self.variables.clone())) // Apply file variables
+      .with_variables(p_to_s(self.variables.clone())) // Apply file variables
       .with_variables(vars) // Override variables with task
-      .with_environments(Importer::p_to_s(self.environments.clone())) // Apply file environments
+      .with_environments(p_to_s(self.environments.clone())) // Apply file environments
       .with_environments(envs); // Override environments with task
-    self
-      .tasks
-      .insert(name, CommandImported::Concurrent(conc));
+    self.tasks.insert(name, CommandImported::Concurrent(conc));
   }
 
-  pub fn add_extend(&mut self, name: String, desc: ExtendedCommandDescription) {
+  fn add_extend(&mut self, name: String, desc: ExtendedCommandDescription) {
     self.extended_tasks.push((name, desc));
-  }
-
-  pub fn resolve_commands(&mut self) -> Result<(), Error>{
-    let mut commands = self.commands.take().unwrap().into_iter();
-    while let Some((key, value)) = commands.next() {
-      match value {
-        CommandFileDescription::StringCommand(command) => {
-          let task_desc = command.as_str().parse::<CommandDescription>()?;
-          self.add_task(key, task_desc);
-        },
-        CommandFileDescription::Command(task_desc) => {
-          self.add_task(key, task_desc);
-        },
-        CommandFileDescription::Concurrent(conc_desc) => {
-          let conc: Concurrent = conc_desc.into();
-          self.add_concurrent(key, conc);
-        },
-        CommandFileDescription::ExtendedCommand(extd_desc) => {
-          self.add_extend(key, extd_desc);
-        },
-      }
-    }
-
-    self.resolve_extends()?;
-
-    Ok(())
   }
 
   fn resolve_extends(&mut self) -> Result<(), Error> {
@@ -406,13 +356,11 @@ impl Importer {
 
           let mut task: CommandBuilder = extend.into();
           task.with_name(name.clone());
-          self
-            .tasks
-            .insert(name.clone(), CommandImported::Command(task));
+          self.tasks.insert(name, CommandImported::Command(task));
         } else {
           return Err(Error::ImportError(format!(
-            "Cannot extend {}",
-            desc.extend.clone()
+            "{} cannot extend {}.",
+            name, desc.extend
           )));
         }
       } else if !pending.contains(&name) {
@@ -420,9 +368,8 @@ impl Importer {
         self.extended_tasks.insert(0, (name, desc));
       } else {
         return Err(Error::ImportError(format!(
-          "{} cannot extend {}. It does not exist.",
-          name,
-          desc.extend.clone()
+          "{} cannot extend {}.",
+          name, desc.extend
         )));
       }
     }
@@ -430,8 +377,8 @@ impl Importer {
     Ok(())
   }
 
-  pub fn to_context(mut self) -> Result<Context, Error> {
-    let mut tasks: HashMap<String, CommandImported> = HashMap::new();
+  fn to_context(mut self) -> Result<Context, Error> {
+    let mut tasks: Dictionary<CommandImported> = HashMap::new();
     for (key, value) in self.tasks {
       tasks.insert(key.to_owned(), value);
     }
@@ -461,6 +408,50 @@ impl Importer {
   }
 }
 
+fn p_to_s(map: Dictionary<Primitive>) -> Dictionary<String> {
+  let mut h: Dictionary<String> = HashMap::new();
+  for item in map {
+    h.insert(item.0, item.1.into());
+  }
+  return h;
+}
+
+fn s_to_p(map: Dictionary<String>) -> Dictionary<Primitive> {
+  let mut h: Dictionary<Primitive> = HashMap::new();
+  for item in map {
+    h.insert(item.0, item.1.into());
+  }
+  return h;
+}
+
+fn is_shell_task(cmd: &CommandDescription) -> bool {
+  let c: &str = cmd.command.as_str();
+  if c.len() >= 4 && &c[0..3] == "wk:" {
+    return false;
+  }
+
+  return true;
+}
+
+fn split_command(cmd: &str) -> Vec<&str> {
+  let split: Vec<&str> = cmd.split_whitespace().collect();
+  let mut args: Vec<&str> = Vec::new();
+
+  let mut iterator = split.into_iter().enumerate();
+  while let Some((index, arg)) = iterator.next() {
+    if index == 0 {
+      if arg.len() >= 4 && &arg[0..3] == "wk:" {
+        let c = &arg[3..];
+        args.push(c.into());
+        continue;
+      }
+    }
+    args.push(arg.into());
+  }
+
+  return args;
+}
+
 pub fn load<'a, P>(path: P) -> Result<Context, Error>
 where
   P: AsRef<Path> + Copy,
@@ -469,7 +460,7 @@ where
   let file: CommandsFile = serde_yaml::from_str(content.as_str())?;
 
   let source = PathBuf::new().join(&path);
-  let mut importer = Importer {
+  let importer = Importer {
     source,
     tasks: HashMap::new(),
     extended_tasks: Vec::new(),
@@ -479,11 +470,8 @@ where
     environments: file.environments.unwrap_or(HashMap::new()),
   };
 
-  // Create extended task
-  importer.resolve_commands()?;
-  let context = importer.to_context()?;
-
-  Ok(context)
+  let c = importer.resolve()?;
+  Ok(c)
 }
 
 pub fn lookup_dir<P>(dir_path: P) -> Result<PathBuf, Error>
