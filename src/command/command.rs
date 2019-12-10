@@ -12,8 +12,8 @@ pub struct Command {
 }
 
 impl Command {
-  pub fn execute(self) -> CommandFuture {
-    CommandFuture::new(&self)
+  pub fn execute(mut self) -> CommandFuture {
+    CommandFuture::new(&mut self)
   }
 
   pub fn debug(&self) {

@@ -14,18 +14,13 @@ pub struct CommandFuture {
 }
 
 impl CommandFuture {
-  pub fn new(command: &Command) -> Self {
+  pub fn new(command: &mut Command) -> Self {
     let mut cmd = std::process::Command::new(&command.shell);
 
-    // Set shell caller
-    if command.shell.as_os_str() == std::ffi::OsStr::new("cmd.exe") {
-      cmd.arg("/c");
-    } else {
-      cmd.arg("-c");
-    }
+    // Set shell
+    cmd.arg(command.args.remove(0));
 
     // Set arguments
-    // cmd.args(&command.args[..]);
     cmd.arg(command.args.join(" "));
 
     // Set current directory

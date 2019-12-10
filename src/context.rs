@@ -52,13 +52,15 @@ impl Context {
   ) where
     S: AsRef<str>,
   {
-    if let Some(command) = self.create_command(name.as_ref(), variables) {
+    let name_ref = name.as_ref();
+
+    if let Some(command) = self.create_command(name_ref, variables) {
       // Add dependencies
       if !command.dependencies.is_empty() {
         for depname in &command.dependencies {
-          match self.find_builder(depname.as_str()) {
+          match self.find_builder(&depname) {
             Some(_dep) => {
-              if depname != name.as_ref() && !tasks.contains_key(depname) {
+              if depname != name_ref && !tasks.contains_key(depname) {
                 self.create_stack(depname, order, tasks, variables);
               }
             }
@@ -68,10 +70,10 @@ impl Context {
       }
 
       // Add task if it does not exist
-      let s = name.as_ref().to_owned();
-      if !tasks.contains_key(&s) {
-        order.push(s.clone());
-        tasks.insert(s, command);
+      let name_owned = name_ref.to_owned();
+      if !tasks.contains_key(&name_owned) {
+        order.push(name_owned.clone());
+        tasks.insert(name_owned, command);
       }
     }
   }
@@ -84,19 +86,21 @@ impl Context {
   where
     S: AsRef<str>,
   {
-    if let None = self.find_builder(name.as_ref()) {
-      let err = format!("Command \"{}\" not found", name.as_ref().to_string());
-      return Err(Error::CommandError(err));
+    let name_ref = name.as_ref();
+
+    if let None = self.find_builder(name_ref) {
+      let err = format!("Command \"{}\" not found", name_ref);
+      return Err(Error::Command(err));
     }
 
     let mut order: Vec<String> = Vec::new();
     let mut commands: HashMap<String, Command> = HashMap::new();
-    self.create_stack(name.as_ref(), &mut order, &mut commands, variables);
+    self.create_stack(name_ref, &mut order, &mut commands, variables);
 
     // Run commands
     let mut results: Vec<CommandResult> = Vec::new();
-    for name in order.iter() {
-      if let Some(c) = commands.remove(name) {
+    for taskname in order.iter() {
+      if let Some(c) = commands.remove(taskname) {
         match self.debug {
           2 => {
             c.display();

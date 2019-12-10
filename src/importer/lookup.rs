@@ -14,10 +14,10 @@ pub fn dir_with_patterns<P>(dir_path: P, patterns: Option<Vec<&str>>) -> Result<
 where
   P: AsRef<Path>,
 {
+  let dir_path_ref = dir_path.as_ref();
   let patterns = patterns.unwrap_or(FILES.to_vec());
 
-  let dir_path = dir_path.as_ref();
-  let mut dir_pathbuf = PathBuf::new().join(dir_path);
+  let mut dir_pathbuf = PathBuf::new().join(&dir_path_ref);
 
   if !dir_pathbuf.is_absolute() {
     if let Ok(cwd) = std::env::current_dir() {
@@ -27,15 +27,15 @@ where
 
   if !dir_pathbuf.is_dir() {
     let d = dir_pathbuf.display();
-    return Err(Error::ImportError(format!("\"{}\" is not a directory", d)));
+    return Err(Error::Import(format!("\"{}\" is not a directory", d)));
   }
 
-  let dir_path = dir_pathbuf.as_path();
-  let readdir = std::fs::read_dir(dir_path)?;
+  let dirpath = dir_pathbuf.as_path();
+  let readdir = std::fs::read_dir(&dirpath)?;
 
   let items: Vec<PathBuf> = patterns
     .iter()
-    .map(|pattern| PathBuf::new().join(&dir_path).join(&pattern))
+    .map(|pattern| PathBuf::new().join(&dirpath).join(&pattern))
     .collect();
 
   let mut it = readdir.into_iter();
@@ -48,5 +48,5 @@ where
     }
   }
 
-  Err(Error::ImportError("No commands found.".to_string()))
+  Err(Error::Import("No commands found.".to_string()))
 }

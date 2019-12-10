@@ -88,7 +88,7 @@ pub(crate) struct Resolver {
   tasks: Dictionary<CommandImported>,
   extended_tasks: Vec<(String, ExtendedCommandDescription)>,
   extends: Option<Vec<PathBuf>>,
-  commands: Option<Dictionary<CommandFileDescription>>,
+  commands: Dictionary<CommandFileDescription>,
   variables: Dictionary<Primitive>,
   environments: Dictionary<Primitive>,
 }
@@ -250,7 +250,7 @@ impl std::str::FromStr for CommandDescription {
     let mut args: Vec<String> = args.iter().map(|s| (*s).into()).collect();
 
     if args.len() == 0 {
-      return Err(Error::CommandError(
+      return Err(Error::Command(
         "Cannot convert an empty string to command description".to_string(),
       ));
     }
@@ -272,22 +272,25 @@ impl std::str::FromStr for CommandDescription {
 
 impl Resolver {
   pub fn resolve(mut self) -> Result<Context, Error> {
-    let mut commands = self.commands.take().unwrap().into_iter();
-    while let Some((key, value)) = commands.next() {
-      match value {
-        CommandFileDescription::StringCommand(command) => {
-          let task_desc = command.as_str().parse::<CommandDescription>()?;
-          self.add_task(key, task_desc);
-        }
-        CommandFileDescription::Command(task_desc) => {
-          self.add_task(key, task_desc);
-        }
-        CommandFileDescription::Concurrent(conc_desc) => {
-          let conc: ConcurrentBuilder = conc_desc.into();
-          self.add_concurrent(key, conc);
-        }
-        CommandFileDescription::ExtendedCommand(extd_desc) => {
-          self.add_extend(key, extd_desc);
+    let keys: Vec<String> = self.commands.iter().map(|s| s.0.into()).collect();
+
+    for k in keys {
+      if let Some((key, value)) = self.commands.remove_entry(&k) {
+        match value {
+          CommandFileDescription::StringCommand(command) => {
+            let task_desc = command.as_str().parse::<CommandDescription>()?;
+            self.add_task(key, task_desc);
+          }
+          CommandFileDescription::Command(task_desc) => {
+            self.add_task(key, task_desc);
+          }
+          CommandFileDescription::Concurrent(conc_desc) => {
+            let conc: ConcurrentBuilder = conc_desc.into();
+            self.add_concurrent(key, conc);
+          }
+          CommandFileDescription::ExtendedCommand(extd_desc) => {
+            self.add_extend(key, extd_desc);
+          }
         }
       }
     }
@@ -313,7 +316,7 @@ impl Resolver {
     let vars = task.variables.clone();
     let envs = task.environments.clone();
     task
-      .with_name(name.clone())
+      .with_name(&name)
       .with_source(&self.source)
       .with_variables(p_to_s(self.variables.clone())) // Apply file variables
       .with_variables(vars) // Override variables with task
@@ -326,7 +329,7 @@ impl Resolver {
     let vars = conc.variables.clone();
     let envs = conc.environments.clone();
     conc
-      .with_name(name.clone())
+      .with_name(&name)
       .with_source(&self.source)
       .with_variables(p_to_s(self.variables.clone())) // Apply file variables
       .with_variables(vars) // Override variables with task
@@ -353,10 +356,10 @@ impl Resolver {
           };
 
           let mut task: CommandBuilder = extend.into();
-          task.with_name(name.clone());
+          task.with_name(&name);
           self.tasks.insert(name, CommandImported::Command(task));
         } else {
-          return Err(Error::ImportError(format!(
+          return Err(Error::Import(format!(
             "{} cannot extend {}.",
             name, desc.extend
           )));
@@ -365,7 +368,7 @@ impl Resolver {
         pending.push(name.clone());
         self.extended_tasks.insert(0, (name, desc));
       } else {
-        return Err(Error::ImportError(format!(
+        return Err(Error::Import(format!(
           "{} cannot extend {}.",
           name, desc.extend
         )));
@@ -395,7 +398,7 @@ impl Resolver {
             context.extend(c);
           }
         } else {
-          return Err(Error::ImportError(
+          return Err(Error::Import(
             format!("Cannot extend {:?}", fpath).to_string(),
           ));
         }
@@ -455,18 +458,18 @@ fn split_command(cmd: &str) -> Vec<&str> {
 
 pub fn load<'a, P>(path: P) -> Result<Context, Error>
 where
-  P: AsRef<Path> + Copy,
+  P: AsRef<Path>,
 {
-  let content = Reader::text(path)?;
+  let path_ref = path.as_ref();
+  let content = Reader::text(path_ref)?;
   let file: CommandsFile = serde_yaml::from_str(content.as_str())?;
 
-  let source = PathBuf::new().join(&path);
   let importer = Resolver {
-    source,
+    source: path_ref.into(),
     tasks: HashMap::new(),
     extended_tasks: Vec::new(),
     extends: file.extends,
-    commands: Some(file.commands),
+    commands: file.commands,
     variables: file.variables.unwrap_or(HashMap::new()),
     environments: file.environments.unwrap_or(HashMap::new()),
   };

@@ -1,15 +1,20 @@
 use super::command::Command;
 use crate::error::Error;
-use std::{collections::HashMap, env};
+use std::{
+  collections::HashMap,
+  env,
+  path::PathBuf,
+  str::FromStr,
+};
 
 #[derive(Debug, Clone)]
 pub struct CommandBuilder {
-  cwd: Option<std::path::PathBuf>,
+  cwd: Option<PathBuf>,
   args: Vec<String>,
   name: String,
-  shell: Option<std::path::PathBuf>,
+  shell: Option<PathBuf>,
   hidden: bool,
-  source: std::path::PathBuf,
+  source: PathBuf,
   pub(crate) variables: HashMap<String, String>,
   pub(crate) environments: HashMap<String, String>,
   description: Option<String>,
@@ -24,7 +29,7 @@ impl CommandBuilder {
       name: String::from("command"),
       shell: None,
       hidden: false,
-      source: std::path::PathBuf::new(),
+      source: PathBuf::new(),
       variables: HashMap::new(),
       environments: HashMap::new(),
       description: None,
@@ -45,15 +50,15 @@ impl CommandBuilder {
     S: Into<String>,
   {
     let cmd = command.into();
-    let parameters: Vec<&str> = cmd.split_whitespace().collect();
+    let parameters = cmd
+      .split_whitespace()
+      .collect::<Vec<&str>>()
+      .iter()
+      .map(|s| (*s).into())
+      .collect::<Vec<String>>();
 
     self.args.clear();
-    self.args.extend(
-      parameters
-        .iter()
-        .map(|s| (*s).into())
-        .collect::<Vec<String>>(),
-    );
+    self.args.extend(parameters);
 
     self
   }
@@ -68,7 +73,7 @@ impl CommandBuilder {
 
   pub fn with_cwd<S>(&mut self, cwd: Option<S>) -> &mut Self
   where
-    S: Into<std::path::PathBuf>,
+    S: Into<PathBuf>,
   {
     self.cwd = cwd.map(|s| s.into());
     self
@@ -76,7 +81,7 @@ impl CommandBuilder {
 
   pub fn with_source<S>(&mut self, source: S) -> &mut Self
   where
-    S: Into<std::path::PathBuf>,
+    S: Into<PathBuf>,
   {
     self.source = source.into();
     self
@@ -89,7 +94,7 @@ impl CommandBuilder {
 
   pub fn with_shell<S>(&mut self, shell: S) -> &mut Self
   where
-    S: Into<std::path::PathBuf>,
+    S: Into<PathBuf>,
   {
     self.shell = Some(shell.into());
     self
@@ -164,7 +169,7 @@ impl CommandBuilder {
     }
 
     // Set arguments
-    let args: Vec<String> = self
+    let mut args: Vec<String> = self
       .args
       .iter()
       .map(|arg: &String| {
@@ -180,15 +185,15 @@ impl CommandBuilder {
       .collect();
 
     // Set CWD
-    let mut cwd: Option<std::path::PathBuf> = None;
+    let mut cwd: Option<PathBuf> = None;
     if let Some(ccwd) = &self.cwd {
-      cwd = Some(std::path::PathBuf::new().join(ccwd));
+      cwd = Some(PathBuf::new().join(ccwd));
     } else if let Ok(ccwd) = env::current_dir() {
       cwd = Some(ccwd);
     } else {
       if self.source.is_file() {
         if let Some(dir) = self.source.parent() {
-          cwd = Some(std::path::PathBuf::new().join(dir));
+          cwd = Some(PathBuf::new().join(dir));
         }
       }
     }
@@ -196,12 +201,15 @@ impl CommandBuilder {
     // Set Shell
     let shell = {
       if let Some(shell) = &self.shell {
-        std::path::PathBuf::new().join(shell)
+        args.insert(0, "-c".into());
+        PathBuf::new().join(shell)
       } else {
         if cfg!(windows) {
-          std::path::PathBuf::new().join("cmd.exe")
+          args.insert(0, "/c".into());
+          PathBuf::new().join("cmd.exe")
         } else {
-          std::path::PathBuf::new().join("bash")
+          args.insert(0, "-c".into());
+          PathBuf::new().join("bash")
         }
       }
     };
@@ -223,12 +231,12 @@ impl CommandBuilder {
   }
 }
 
-impl std::str::FromStr for CommandBuilder {
+impl FromStr for CommandBuilder {
   type Err = Error;
 
   fn from_str(s: &str) -> Result<Self, Self::Err> {
     if s.is_empty() {
-      return Err(Error::CommandError(
+      return Err(Error::Command(
         "Cannot convert an empty string to command".to_string(),
       ));
     }
