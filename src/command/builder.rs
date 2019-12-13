@@ -214,19 +214,13 @@ impl CommandBuilder {
       }
     };
 
-    // Set dependencies
-    let dependencies = self.dependencies.clone();
-
-    // Set environments
-    let environments = self.environments.clone();
-
     Command {
-      name: self.name.clone(),
+      name: &self.name,
       cwd,
       args,
       shell,
-      environments,
-      dependencies,
+      environments: &self.environments,
+      dependencies: &self.dependencies,
     }
   }
 }

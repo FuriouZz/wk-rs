@@ -2,21 +2,23 @@ use super::future::CommandFuture;
 use std::{collections::HashMap, fmt, path::PathBuf};
 
 #[derive(Debug)]
-pub struct Command {
-  pub name: String,
+pub struct Command<'a> {
+  pub name: &'a str,
   pub cwd: Option<PathBuf>,
   pub args: Vec<String>,
   pub shell: PathBuf,
-  pub dependencies: Vec<String>,
-  pub environments: HashMap<String, String>,
+  pub dependencies: &'a Vec<String>,
+  pub environments: &'a HashMap<String, String>,
 }
 
-impl Command {
+impl<'a> Command<'a> {
   pub fn execute(mut self) -> CommandFuture {
     CommandFuture::new(&mut self)
   }
 
   pub fn debug(&self) {
+    print!("\n\n");
+
     if let Some(cwd) = &self.cwd {
       print!("\nFrom: {} ", cwd.to_string_lossy());
     }
@@ -30,13 +32,15 @@ impl Command {
   }
 }
 
-impl std::fmt::Display for Command {
+impl<'a> std::fmt::Display for Command<'a> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "\n\n")?;
+    write!(f, "Run: {}\n", self.name)?;
     write!(f, "Dependencies: ")?;
     write!(f, "{}\n", self.dependencies.join(", "))?;
 
     write!(f, "Environments:")?;
-    for (key, value) in &self.environments {
+    for (key, value) in self.environments {
       write!(f, " {}={}", key, value)?;
     }
     write!(f, "\n")?;

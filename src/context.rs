@@ -43,13 +43,13 @@ impl Context {
     None
   }
 
-  pub fn create_stack<S>(
-    &self,
+  pub fn create_stack<'a, S>(
+    &'a self,
     name: S,
-    order: &mut Vec<String>,
-    tasks: &mut HashMap<String, Command>,
+    tasks: &mut Vec<Command<'a>>,
     variables: Option<&HashMap<String, String>>,
-  ) where
+  )
+  where
     S: AsRef<str>,
   {
     let name_ref = name.as_ref();
@@ -57,11 +57,18 @@ impl Context {
     if let Some(command) = self.create_command(name_ref, variables) {
       // Add dependencies
       if !command.dependencies.is_empty() {
-        for depname in &command.dependencies {
+        for depname in command.dependencies {
           match self.find_builder(&depname) {
             Some(_dep) => {
-              if depname != name_ref && !tasks.contains_key(depname) {
-                self.create_stack(depname, order, tasks, variables);
+
+              let found = tasks
+              .iter()
+              .filter(|item| &item.name == depname)
+              .take(1)
+              .next();
+
+              if depname != name_ref && found.is_none() {
+                self.create_stack(depname, tasks, variables);
               }
             }
             None => {}
@@ -69,11 +76,14 @@ impl Context {
         }
       }
 
-      // Add task if it does not exist
-      let name_owned = name_ref.to_owned();
-      if !tasks.contains_key(&name_owned) {
-        order.push(name_owned.clone());
-        tasks.insert(name_owned, command);
+      let found = tasks
+      .iter()
+      .filter(|item| item.name == name_ref)
+      .take(1)
+      .next();
+
+      if found.is_none() {
+        tasks.push(command);
       }
     }
   }
@@ -93,24 +103,23 @@ impl Context {
       return Err(Error::Command(err));
     }
 
-    let mut order: Vec<String> = Vec::new();
-    let mut commands: HashMap<String, Command> = HashMap::new();
-    self.create_stack(name_ref, &mut order, &mut commands, variables);
+    let mut commands: Vec<Command> = Vec::new();
+    self.create_stack(name_ref, &mut commands, variables);
 
     // Run commands
     let mut results: Vec<CommandResult> = Vec::new();
-    for taskname in order.iter() {
-      if let Some(c) = commands.remove(taskname) {
-        match self.debug {
-          2 => {
-            c.display();
-          }
-          1 => {
-            c.debug();
-            results.push(c.execute().await)
-          }
-          _ => results.push(c.execute().await),
+    for c in commands.into_iter() {
+      // c.display();
+      // results.push(c.execute().await);
+      match self.debug {
+        2 => {
+          c.display();
         }
+        1 => {
+          c.debug();
+          results.push(c.execute().await)
+        }
+        _ => results.push(c.execute().await),
       }
     }
 

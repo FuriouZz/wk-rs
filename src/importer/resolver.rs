@@ -201,7 +201,7 @@ impl From<CommandDescription> for ExtendedCommandDescription {
         extend = params[0].to_string();
         match value.args.take() {
           Some(mut a) => {
-            a.extend(params);
+            a.extend((&params[1..]).to_vec());
             value.args = Some(a);
           }
           None => {
