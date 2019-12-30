@@ -105,13 +105,13 @@ commands:
     echo2: wk:hello ${buddy}!
     echos:
       commands:
-        - echo0
-        - echo1
-        - echo2 --var.buddy=Marc
+        - wk:echo0
+        - wk:echo1
+        - wk:echo2 --var.buddy=Marc
       depends:
-        - welcome
+        - wk:welcome
     echos_alt:
-      - echo0
-      - echo1
-      - echo2
+      - wk:echo0
+      - wk:echo1
+      - wk:echo2
   ```
